@@ -36,6 +36,14 @@ extern int __bss_end;
 
 #define HEAP_END        STM32_SRAM_END
 
+typedef void (*message_free_cb)(void* content);
+
+struct hal_message{
+	rt_uint8_t what;			/*msg type*/
+	void* content;		/*msg content*/
+	message_free_cb freecb; /* free content func */
+};
+
 void SystemClock_Config(void);
 
 #ifdef __cplusplus

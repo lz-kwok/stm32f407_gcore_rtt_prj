@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "rtthread.h": "c",
+        "rthw.h": "c",
+        "rtconfig.h": "c",
+        "rtservice.h": "c",
+        "rtdebug.h": "c",
+        "board.h": "c",
+        "gui.h": "c",
+        "rtdevice.h": "c"
+    }
+}

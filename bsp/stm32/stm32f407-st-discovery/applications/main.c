@@ -11,22 +11,33 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <board.h>
+#include <gui.h>
 
-/* defined the LED0 pin: PD14 */
-#define LED0_PIN    GET_PIN(D, 14)
+
+
+
+
 
 int main(void)
 {
-    int count = 1;
-    /* set LED0 pin mode to output */
-    rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
+    g_Gui_init();
 
-    while (count++)
+    while (RT_TRUE)
     {
-        rt_pin_write(LED0_PIN, PIN_HIGH);
-        rt_thread_mdelay(500);
-        rt_pin_write(LED0_PIN, PIN_LOW);
-        rt_thread_mdelay(500);
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("1");
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("2");
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("3");
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("4");
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("5");
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("A");
+        rt_thread_mdelay(2000);
+        g_Gui_show_pic("F");
     }
 
     return RT_EOK;
