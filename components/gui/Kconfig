@@ -1,0 +1,7 @@
+menu "GUI Features"
+
+config RT_USING_NANOGUI
+    bool "Support Desktop&Digital_Tube"
+    default n
+
+endmenu
