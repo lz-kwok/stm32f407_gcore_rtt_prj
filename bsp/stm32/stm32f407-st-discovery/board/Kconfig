@@ -68,6 +68,12 @@ menu "On-chip Peripheral Drivers"
                 range 1 216
                 default 25
         endif
+		
+	config BSP_USING_USBD_FS
+        bool "Enable OTGFS as USB device"
+        select RT_USING_USB_DEVICE
+        default n
+
     source "../libraries/HAL_Drivers/Kconfig"
     
 endmenu

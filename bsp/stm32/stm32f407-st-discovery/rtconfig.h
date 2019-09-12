@@ -128,6 +128,10 @@
 /* Utilities */
 
 
+/* GUI Features */
+
+#define RT_USING_NANOGUI
+
 /* RT-Thread online packages */
 
 /* IoT - internet of things */
@@ -181,6 +185,7 @@
 #define BSP_USING_GPIO
 #define BSP_USING_UART
 #define BSP_USING_UART1
+#define BSP_USING_USBD_FS
 
 /* Board extended module Drivers */
 
