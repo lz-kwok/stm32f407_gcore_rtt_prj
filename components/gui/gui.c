@@ -21,14 +21,14 @@ static void led_gui_entry(void *param)
 {
     int8_t num,c,byte;
     rt_device_t dev = RT_NULL;
-    char buf[] = "zhizhuo\r\n";
+    char buf[] = "hello zhizhuo\r\n";
 
-    dev = rt_device_find("vcom");
-    
-    if (dev)
-        rt_device_open(dev, RT_DEVICE_FLAG_RDWR);
-    else
-        return ;
+   dev = rt_device_find("vcom");
+   
+   if (dev)
+       rt_device_open(dev, RT_DEVICE_FLAG_RDWR);
+   else
+       return ;
     while (RT_TRUE)
     {
         struct hal_message msg;
@@ -60,7 +60,7 @@ static void led_gui_entry(void *param)
             }
         }
 
-        rt_device_write(dev, 0, buf, rt_strlen(buf));
+       rt_device_write(dev, 0, buf, rt_strlen(buf));
 
         rt_thread_mdelay(100);
     }

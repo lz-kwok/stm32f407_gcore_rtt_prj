@@ -69,11 +69,21 @@ menu "On-chip Peripheral Drivers"
                 default 25
         endif
 		
-	config BSP_USING_USBD_FS
-        bool "Enable OTGFS as USB device"
-        select RT_USING_USB_DEVICE
+	menuconfig BSP_USING_USBD_FS
+        bool "Enable USB"
         default n
-	
+        if BSP_USING_USBD_FS
+            config BSP_USING_USBD_FS_DEVICE
+                bool "Enable OTGFS as USB device"
+				select RT_USING_USB_DEVICE
+                default n
+
+            config BSP_USING_USBD_FS_HOST
+                bool "Enable OTGFS as USB host"
+                select RT_USING_USB_HOST
+                default n
+        endif
+
 	config BSP_USING_FMC
         bool "Enable FMC"
         default n

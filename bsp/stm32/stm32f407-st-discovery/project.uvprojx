@@ -332,7 +332,7 @@
               <MiscControls />
               <Define>USE_HAL_DRIVER, STM32F407xx</Define>
               <Undefine />
-              <IncludePath>.;..\..\..\include;applications;.;board;board\CubeMX_Config\Inc;..\libraries\HAL_Drivers;..\libraries\HAL_Drivers\config;..\..\..\libcpu\arm\common;..\..\..\libcpu\arm\cortex-m4;..\..\..\components\dfs\include;..\..\..\components\dfs\filesystems\devfs;..\..\..\components\drivers\include;..\..\..\components\drivers\include;..\..\..\components\drivers\include;..\..\..\components\drivers\include;..\..\..\components\drivers\usb\usbdevice;..\..\..\components\finsh;..\..\..\components\gui;..\libraries\STM32F4xx_HAL\STM32F4xx_HAL_Driver\Inc;..\libraries\STM32F4xx_HAL\CMSIS\Device\ST\STM32F4xx\Include;..\libraries\STM32F4xx_HAL\CMSIS\Include</IncludePath>
+              <IncludePath>.;..\..\..\include;applications;.;board;board\CubeMX_Config\Inc;..\libraries\HAL_Drivers;..\libraries\HAL_Drivers\config;..\..\..\libcpu\arm\common;..\..\..\libcpu\arm\cortex-m4;..\..\..\components\dfs\include;..\..\..\components\dfs\filesystems\devfs;..\..\..\components\drivers\include;..\..\..\components\drivers\include;..\..\..\components\drivers\include;..\..\..\components\drivers\include;..\..\..\components\drivers\usb\usbdevice;..\..\..\components\drivers\usb\usbhost;..\..\..\components\drivers\usb\usbhost\class;..\..\..\components\drivers\usb\usbhost\core;..\..\..\components\drivers\usb\usbhost\include;..\..\..\components\drivers\include;..\..\..\components\finsh;..\..\..\components\gui;..\libraries\STM32F4xx_HAL\STM32F4xx_HAL_Driver\Inc;..\libraries\STM32F4xx_HAL\CMSIS\Device\ST\STM32F4xx\Include;..\libraries\STM32F4xx_HAL\CMSIS\Include</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -715,11 +715,35 @@
               <FilePath>..\..\..\components\drivers\usb\usbdevice\class\cdc_vcom.c</FilePath>
             </File>
           </Files>
+        </Group>
+        <Group>
+          <GroupName>rt_usbh</GroupName>
           <Files>
             <File>
-              <FileName>mstorage.c</FileName>
+              <FileName>core_core.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\components\drivers\usb\usbdevice\class\mstorage.c</FilePath>
+              <FilePath>..\..\..\components\drivers\usb\usbhost\core\core.c</FilePath>
+            </File>
+          </Files>
+          <Files>
+            <File>
+              <FileName>driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\components\drivers\usb\usbhost\core\driver.c</FilePath>
+            </File>
+          </Files>
+          <Files>
+            <File>
+              <FileName>usbhost.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\components\drivers\usb\usbhost\core\usbhost.c</FilePath>
+            </File>
+          </Files>
+          <Files>
+            <File>
+              <FileName>hub.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\components\drivers\usb\usbhost\core\hub.c</FilePath>
             </File>
           </Files>
         </Group>
