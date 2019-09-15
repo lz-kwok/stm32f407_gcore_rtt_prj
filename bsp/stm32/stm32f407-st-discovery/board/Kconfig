@@ -73,6 +73,10 @@ menu "On-chip Peripheral Drivers"
         bool "Enable OTGFS as USB device"
         select RT_USING_USB_DEVICE
         default n
+	
+	config BSP_USING_FMC
+        bool "Enable FMC"
+        default n
 
     source "../libraries/HAL_Drivers/Kconfig"
     

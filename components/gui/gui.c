@@ -19,9 +19,16 @@ const char pic_index[] = {'0','1','2','3','4','5','6','7','8','9','.','A','C','E
 
 static void led_gui_entry(void *param)
 {
-    static int8_t led_tick = 0;
     int8_t num,c,byte;
+    rt_device_t dev = RT_NULL;
+    char buf[] = "zhizhuo\r\n";
+
+    dev = rt_device_find("vcom");
     
+    if (dev)
+        rt_device_open(dev, RT_DEVICE_FLAG_RDWR);
+    else
+        return ;
     while (RT_TRUE)
     {
         struct hal_message msg;
@@ -53,6 +60,8 @@ static void led_gui_entry(void *param)
             }
         }
 
+        rt_device_write(dev, 0, buf, rt_strlen(buf));
+
         rt_thread_mdelay(100);
     }
     
@@ -71,7 +80,6 @@ void g_Gui_show_pic(const char *pic)
 
 rt_err_t g_Gui_init(void)
 {
-    rt_thread_t gui_id;
     static struct rt_thread gui_thread;
     rt_pin_mode(DigitLedData, PIN_MODE_OUTPUT);
     rt_pin_mode(DigitLedclk, PIN_MODE_OUTPUT);
