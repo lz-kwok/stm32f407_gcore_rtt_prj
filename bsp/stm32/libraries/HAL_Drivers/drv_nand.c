@@ -17,223 +17,22 @@
 #define DMA_IRQ_HANDLER DMA2_Stream0_IRQHandler
 #define DMA_CLK         RCC_AHB1Periph_DMA2
 
-#define NAND_BANK     ((rt_uint32_t)0x80000000)
-static struct stm32f4_nand _device;
-
+#define NAND_BANK     ((rt_uint32_t)0x70000000)
 #define ECC_SIZE     4
 
-rt_inline void nand_cmd(rt_uint8_t cmd)
-{
-    /* write to CMD area */
-    *(volatile rt_uint8_t*)(NAND_BANK | CMD_AREA) = cmd;
-}
+static struct stm32f4_nand _device;
+static struct rt_mtd_nand_device _partition[2];
 
-rt_inline void nand_addr(rt_uint8_t addr)
-{
-    /* write to address area */
-    *(volatile rt_uint8_t*)(NAND_BANK | ADDR_AREA) = addr;
-}
-
-rt_inline rt_uint8_t nand_read8(void)
-{
-    /* read 1Byte */
-    return (*(volatile rt_uint8_t*)(NAND_BANK | DATA_AREA));
-}
-
-rt_inline void nand_write8(rt_uint8_t data)
-{
-    /* write 1Byte */
-    *(volatile rt_uint8_t*)(NAND_BANK | DATA_AREA) = data;
-}
-
-rt_inline void nand_waitready(void)
-{
-    while (GPIO_ReadInputDataBit(GPIOG, GPIO_Pin_6) == 0);
-}
-
-static rt_uint8_t nand_readstatus(void)
-{
-    nand_cmd(NAND_CMD_STATUS);
-    return (nand_read8());
-}
-
-static void dmaRead(rt_uint8_t *dst, rt_size_t size)
-{
-    DMA_InitTypeDef  DMA_InitStructure;
-
-    DMA_InitStructure.DMA_Channel = DMA_CHANNEL;
-    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(NAND_BANK | DATA_AREA);
-    DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)dst;
-    DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToMemory;
-    DMA_InitStructure.DMA_BufferSize = size; /* assert_param(0~64K) */
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-    DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
-    DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-    DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-    DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-    DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-
-    DMA_Init(DMA_STREAM, &DMA_InitStructure);
-
-    DMA_ITConfig(DMA_STREAM, DMA_IT_TC, ENABLE);
-    DMA_ClearFlag(DMA_STREAM, DMA_TCIF);
-    rt_completion_init(&_device.comp);
-    DMA_Cmd(DMA_STREAM, ENABLE);
-
-    if (rt_completion_wait(&_device.comp, 100) != RT_EOK)
-    {
-        NAND_DEBUG("nand read timeout\n");
-    }
-}
-
-static void dmaWrite(const rt_uint8_t *src, rt_size_t size)
-{
-    DMA_InitTypeDef  DMA_InitStructure;
-
-    DMA_InitStructure.DMA_Channel = DMA_CHANNEL;
-    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)src;
-    DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)(NAND_BANK | DATA_AREA);
-    DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToMemory;
-    DMA_InitStructure.DMA_BufferSize = size; /* assert_param(0~64K) */
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Enable;
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Disable;
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-    DMA_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;
-    DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Enable;
-    DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
-    DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
-    DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-
-    DMA_Init(DMA_STREAM, &DMA_InitStructure);
-
-    DMA_ITConfig(DMA_STREAM, DMA_IT_TC, ENABLE);
-    DMA_ClearFlag(DMA_STREAM, DMA_TCIF);
-    rt_completion_init(&_device.comp);
-    DMA_Cmd(DMA_STREAM, ENABLE);
-
-    if (rt_completion_wait(&_device.comp, 100) != RT_EOK)
-    {
-        NAND_DEBUG("nand write timeout\n");
-    }
-}
-
-void DMA_IRQ_HANDLER(void)
-{
-    DMA_ClearFlag(DMA_STREAM, DMA_TCIF);
-    rt_completion_done(&_device.comp);
-}
-
-static rt_err_t nand_datacorrect(uint32_t generatedEcc, uint32_t readEcc, uint8_t *data)
-{
-#define ECC_MASK28    0x0FFFFFFF          /* 28 valid ECC parity bits. */
-#define ECC_MASK      0x05555555          /* 14 ECC parity bits.       */
-
-    rt_uint32_t count, bitNum, byteAddr;
-    rt_uint32_t mask;
-    rt_uint32_t syndrome;
-    rt_uint32_t eccP;                            /* 14 even ECC parity bits. */
-    rt_uint32_t eccPn;                           /* 14 odd ECC parity bits.  */
-
-    syndrome = (generatedEcc ^ readEcc) & ECC_MASK28;
-
-    if (syndrome == 0)
-        return (RT_MTD_EOK);                  /* No errors in data. */
-
-    eccPn = syndrome & ECC_MASK;              /* Get 14 odd parity bits.  */
-    eccP  = (syndrome >> 1) & ECC_MASK;       /* Get 14 even parity bits. */
-
-    if ((eccPn ^ eccP) == ECC_MASK)           /* 1-bit correctable error ? */
-    {
-        bitNum = (eccP & 0x01) |
-                 ((eccP >> 1) & 0x02) |
-                 ((eccP >> 2) & 0x04);
-        NAND_DEBUG("ECC bit %d\n",bitNum);
-        byteAddr = ((eccP >> 6) & 0x001) |
-                   ((eccP >> 7) & 0x002) |
-                   ((eccP >> 8) & 0x004) |
-                   ((eccP >> 9) & 0x008) |
-                   ((eccP >> 10) & 0x010) |
-                   ((eccP >> 11) & 0x020) |
-                   ((eccP >> 12) & 0x040) |
-                   ((eccP >> 13) & 0x080) |
-                   ((eccP >> 14) & 0x100) |
-                   ((eccP >> 15) & 0x200) |
-                   ((eccP >> 16) & 0x400) ;
-
-        data[ byteAddr ] ^= 1 << bitNum;
-
-        return RT_MTD_EOK;
-    }
-
-    /* Count number of one's in the syndrome. */
-    count = 0;
-    mask  = 0x00800000;
-    while (mask)
-    {
-        if (syndrome & mask)
-            count++;
-        mask >>= 1;
-    }
-
-    if (count == 1)           /* Error in the ECC itself. */
-        return RT_MTD_EECC;
-
-    return -RT_MTD_EECC;       /* Unable to correct data. */
-
-#undef ECC_MASK
-#undef ECC_MASK24
-}
-
-static void gpio_nandflash_init(void)
-{
-
-}
-
-static void fsmc_nandflash_init(void)
-{
-    FSMC_NANDInitTypeDef FSMC_NANDInitStructure;
-    FSMC_NAND_PCCARDTimingInitTypeDef p;
-
-    RCC_AHB3PeriphClockCmd(RCC_AHB3Periph_FSMC, ENABLE);
-
-    p.FSMC_SetupTime     = 0x1;
-    p.FSMC_WaitSetupTime = 0x3;
-    p.FSMC_HoldSetupTime = 0x2;
-    p.FSMC_HiZSetupTime  = 0x1;
-
-    FSMC_NANDInitStructure.FSMC_Bank = FSMC_Bank3_NAND;
-    FSMC_NANDInitStructure.FSMC_Waitfeature = FSMC_Waitfeature_Disable;
-    FSMC_NANDInitStructure.FSMC_MemoryDataWidth = FSMC_MemoryDataWidth_8b;
-    FSMC_NANDInitStructure.FSMC_ECC = FSMC_ECC_Disable;/* �Ȳ�Ҫ����ECC���� */
-    FSMC_NANDInitStructure.FSMC_ECCPageSize = FSMC_ECCPageSize_2048Bytes;
-    FSMC_NANDInitStructure.FSMC_TCLRSetupTime = 0x00;
-    FSMC_NANDInitStructure.FSMC_TARSetupTime = 0x00;
-    FSMC_NANDInitStructure.FSMC_CommonSpaceTimingStruct = &p;
-    FSMC_NANDInitStructure.FSMC_AttributeSpaceTimingStruct = &p;
-
-    FSMC_NANDInit(&FSMC_NANDInitStructure);
-
-    /* FSMC NAND Bank Cmd Test */
-    FSMC_NANDCmd(FSMC_Bank3_NAND, ENABLE);
-}
-
+NAND_HandleTypeDef NAND_Handler;    //NAND FLASH句柄
+nand_attriute nand_dev;             //nand重要参数结构体
 static rt_err_t nandflash_readid(struct rt_mtd_nand_device *mtd)
 {
-    nand_cmd(NAND_CMD_READID);
-    nand_addr(0);
+    NAND_IDTypeDef nand_id;
 
-    _device.id[0] = nand_read8();
-    _device.id[1] = nand_read8();
-    _device.id[2] = nand_read8();
-    _device.id[3] = nand_read8();
-    NAND_DEBUG("ID[%X,%X]\n",_device.id[0], _device.id[1]);
-    if (_device.id[0] == 0xEC && _device.id[1] == 0xDA)
+    HAL_NAND_Read_ID(&NAND_Handler,&nand_id);
+
+    NAND_DEBUG("ID[%X,%X,%X,%X]\n",nand_id.Maker_Id,nand_id.Device_Id,nand_id.Third_Id,nand_id.Fourth_Id);
+    if (nand_id.Maker_Id == 0xEF && nand_id.Device_Id == 0xDA)
     {
         return (RT_EOK);
     }
@@ -245,74 +44,16 @@ static rt_err_t nandflash_readpage(struct rt_mtd_nand_device* device, rt_off_t p
                                    rt_uint8_t *data, rt_uint32_t data_len,
                                    rt_uint8_t *spare, rt_uint32_t spare_len)
 {
-    rt_uint32_t index;
-    rt_uint32_t gecc, recc;
-    rt_uint8_t tmp[4];
     rt_err_t result;
-
-    page = page + device->block_start * device->pages_per_block;
-    if (page/device->pages_per_block > device->block_end)
-    {
-        return -RT_MTD_EIO;
-    }
-
-    result = RT_MTD_EOK;
     rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-
-    if (data && data_len)
-    {
-        nand_cmd(NAND_CMD_READ_1);
-        nand_addr(0);
-        nand_addr(0);
-        nand_addr(page);
-        nand_addr(page >> 8);
-        nand_addr(page >> 16);
-        nand_cmd(NAND_CMD_READ_TRUE);
-
-        nand_waitready();
-
-        FSMC_NANDECCCmd(FSMC_Bank3_NAND,ENABLE);
-        dmaRead(data, data_len);
-        gecc = FSMC_GetECC(FSMC_Bank3_NAND);
-        FSMC_NANDECCCmd(FSMC_Bank3_NAND,DISABLE);
-
-        if (data_len == PAGE_DATA_SIZE)
-        {
-            for (index = 0; index < ECC_SIZE; index ++)
-                tmp[index] = nand_read8();
-            if (spare && spare_len)
-            {
-                dmaRead(&spare[ECC_SIZE], spare_len - ECC_SIZE);
-                rt_memcpy(spare, tmp , ECC_SIZE);
-            }
-
-            recc   = (tmp[3] << 24) | (tmp[2] << 16) | (tmp[1] << 8) | tmp[0];
-
-            if (recc != 0xFFFFFFFF && gecc != 0)
-                result = nand_datacorrect(gecc, recc, data);
-
-            if (result != RT_MTD_EOK)
-                NAND_DEBUG("page: %d, gecc %X, recc %X>",page, gecc, recc);
-
-            goto _exit;
+    
+    result = NAND_ReadPage(page,0,data,data_len);
+    if(result == 0){
+        if (spare && spare_len){
+            NAND_ReadSpare(page,0,spare,spare_len);
         }
     }
-
-    if (spare && spare_len)
-    {
-        nand_cmd(NAND_CMD_READ_1);
-        nand_addr(0);
-        nand_addr(8);
-        nand_addr(page);
-        nand_addr(page >> 8);
-        nand_addr(page >> 16);
-        nand_cmd(NAND_CMD_READ_TRUE);
-
-        nand_waitready();
-
-        dmaRead(spare, spare_len);
-    }
-_exit:
+ 
     rt_mutex_release(&_device.lock);
 
     return (result);
@@ -323,72 +64,15 @@ static rt_err_t nandflash_writepage(struct rt_mtd_nand_device* device, rt_off_t 
                                     const rt_uint8_t *spare, rt_uint32_t spare_len)
 {
     rt_err_t result;
-    rt_uint32_t gecc;
-
-    page = page + device->block_start * device->pages_per_block;
-    if (page/device->pages_per_block > device->block_end)
-    {
-        return -RT_MTD_EIO;
-    }
-
-    result = RT_MTD_EOK;
     rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-
-    if (data && data_len)
-    {
-        nand_cmd(NAND_CMD_PAGEPROGRAM);
-
-        nand_addr(0);
-        nand_addr(0);
-        nand_addr(page);
-        nand_addr(page >> 8);
-        nand_addr(page >> 16);
-
-        FSMC_NANDECCCmd(FSMC_Bank3_NAND,ENABLE);
-        dmaWrite(data, data_len);
-        gecc = FSMC_GetECC(FSMC_Bank3_NAND);
-        FSMC_NANDECCCmd(FSMC_Bank3_NAND,DISABLE);
-
-        if (data_len == PAGE_DATA_SIZE)
-        {
-            nand_write8((uint8_t)gecc);
-            nand_write8((uint8_t)(gecc >> 8));
-            nand_write8((uint8_t)(gecc >> 16));
-            nand_write8((uint8_t)(gecc >> 24));
-
-            if (spare && spare_len)
-                dmaWrite(&spare[ECC_SIZE], spare_len - ECC_SIZE);
+    
+    result = NAND_WritePage(page,0,(rt_uint8_t *)data,data_len);
+    if(result == 0){
+        if (spare && spare_len){
+            NAND_WriteSpare(page,0,(rt_uint8_t *)spare,spare_len);
         }
-
-        nand_cmd(NAND_CMD_PAGEPROGRAM_TRUE);
-
-        nand_waitready();
-
-        if (nand_readstatus() & 0x01 == 1)
-            result = -RT_MTD_EIO;
-        goto _exit;
     }
-
-    if (spare && spare_len)
-    {
-        nand_cmd(NAND_CMD_PAGEPROGRAM);
-
-        nand_addr(ECC_SIZE);
-        nand_addr(0x08);
-        nand_addr(page);
-        nand_addr(page >> 8);
-        nand_addr(page >> 16);
-
-        dmaWrite(&spare[ECC_SIZE], spare_len - ECC_SIZE);
-
-        nand_cmd(NAND_CMD_PAGEPROGRAM_TRUE);
-        nand_waitready();
-
-        if (nand_readstatus() & 0x01 == 1)
-            result = -RT_MTD_EIO;
-    }
-
-_exit:
+ 
     rt_mutex_release(&_device.lock);
 
     return (result);
@@ -396,28 +80,10 @@ _exit:
 
 rt_err_t nandflash_eraseblock(struct rt_mtd_nand_device* device, rt_uint32_t block)
 {
-    rt_uint32_t page;
     rt_err_t result;
 
-    block = block + device->block_start;
-
-    result = RT_MTD_EOK;
-    page = block * 64;
-
     rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-
-    nand_cmd(NAND_CMD_ERASE0);
-
-    nand_addr(page);
-    nand_addr(page >> 8);
-    nand_addr(page >> 16);
-
-    nand_cmd(NAND_CMD_ERASE1);
-
-    nand_waitready();
-
-    if (nand_readstatus() & 0x01 == 1)
-        result = -RT_MTD_EIO;
+    result = NAND_EraseBlock(block);
     rt_mutex_release(&_device.lock);
 
     return (result);
@@ -427,38 +93,8 @@ static rt_err_t nandflash_pagecopy(struct rt_mtd_nand_device *device, rt_off_t s
 {
     rt_err_t result;
 
-    src_page = src_page + device->block_start * device->pages_per_block;
-    dst_page = dst_page + device->block_start * device->pages_per_block;
-
-    result = RT_MTD_EOK;
     rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-
-    nand_cmd(NAND_CMD_RDCOPYBACK);
-
-    nand_addr(0);
-    nand_addr(0);
-    nand_addr(src_page);
-    nand_addr(src_page >> 8);
-    nand_addr(src_page >> 16);
-
-    nand_cmd(NAND_CMD_RDCOPYBACK_TRUE);
-
-    nand_waitready();
-
-    nand_cmd(NAND_CMD_COPYBACKPGM);
-
-    nand_addr(0);
-    nand_addr(0);
-    nand_addr(dst_page);
-    nand_addr(dst_page >> 8);
-    nand_addr(dst_page >> 16);
-
-    nand_cmd(NAND_CMD_COPYBACKPGM_TRUE);
-
-    nand_waitready();
-    if ((nand_readstatus() & 0x01) == 0x01)
-        result = -RT_MTD_EIO;
-
+    result = NAND_CopyPageWithoutWrite(src_page,dst_page);
     rt_mutex_release(&_device.lock);
 
     return (result);
@@ -490,46 +126,623 @@ static struct rt_mtd_nand_driver_ops ops =
 #endif
 };
 
-static struct rt_mtd_nand_device _partition[2];
 
-void rt_hw_mtd_nand_init(void)
+
+//初始化NAND FLASH
+rt_uint8_t rt_hw_mtd_nand_init(void)
 {
-    NVIC_InitTypeDef NVIC_InitStructure;
+    FMC_NAND_PCC_TimingTypeDef ComSpaceTiming,AttSpaceTiming;
+                                              
+    NAND_Handler.Instance=FMC_NAND_DEVICE;
+    NAND_Handler.Init.NandBank=FSMC_NAND_BANK2;                          //NAND挂在BANK3上
+    NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_ENABLE;    //关闭等待特性
+    NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;     //8位数据宽度
+    NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;              //不使用ECC
+    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_256BYTE;      //ECC页大小为2k
+    NAND_Handler.Init.TCLRSetupTime=0;                                  //设置TCLR(tCLR=CLE到RE的延时)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
+    NAND_Handler.Init.TARSetupTime=1;                                   //设置TAR(tAR=ALE到RE的延时)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5n。   
+   
+    ComSpaceTiming.SetupTime=2;         //建立时间
+    ComSpaceTiming.WaitSetupTime=3;     //等待时间
+    ComSpaceTiming.HoldSetupTime=2;     //保持时间
+    ComSpaceTiming.HiZSetupTime=1;      //高阻态时间
+    
+    AttSpaceTiming.SetupTime=2;         //建立时间
+    AttSpaceTiming.WaitSetupTime=3;     //等待时间
+    AttSpaceTiming.HoldSetupTime=2;     //保持时间
+    AttSpaceTiming.HiZSetupTime=1;      //高阻态时间
+    
+    HAL_NAND_Init(&NAND_Handler,&ComSpaceTiming,&AttSpaceTiming); 
+    NAND_Reset();       		        //复位NAND
+    rt_thread_mdelay(100);
+    nand_dev.id = NAND_ReadID();	    //读取ID
+	NAND_ModeSet(4);			        //设置为MODE4,高速模式 
 
-    NVIC_InitStructure.NVIC_IRQChannel = DMA_IRQN;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    if(nand_dev.id==W29N02GVSIAA){
+        nand_dev.page_totalsize = 2112;  	//nand一个page的总大小（包括spare区）     
+        nand_dev.page_mainsize  = 2048;   	//nand一个page的有效数据区大小    
+        nand_dev.page_sparesize = 64;	    //nand一个page的spare区大小
+        nand_dev.block_pagenum  = 64;		//nand一个block所包含的page数目
+        nand_dev.plane_blocknum = 1024;	    //nand一个plane所包含的block数目
+        nand_dev.block_totalnum = 2048;  	//nand的总block数目  
 
-    gpio_nandflash_init();
-    fsmc_nandflash_init();
-    RCC_AHB1PeriphClockCmd(DMA_CLK, ENABLE);
-    NVIC_Init(&NVIC_InitStructure);
+        rt_mutex_init(&_device.lock, "nand", RT_IPC_FLAG_FIFO);
 
-    rt_mutex_init(&_device.lock, "nand", RT_IPC_FLAG_FIFO);
+        _partition[0].page_size   = 2048;
+        _partition[0].pages_per_block = 64;
+        _partition[0].block_total = 2048;
+        _partition[0].oob_size    = 64;
+        _partition[0].oob_free    = 60;
+        _partition[0].block_start = 0;
+        _partition[0].block_end   = 2047;
+        _partition[0].ops         = &ops;
 
-    _partition[0].page_size   = 2048;
-    _partition[0].pages_per_block = 64;
-    _partition[0].block_total = 256;
-    _partition[0].oob_size    = 64;
-    _partition[0].oob_free    = 60;
-    _partition[0].block_start = 0;
-    _partition[0].block_end   = 255;
-    _partition[0].ops         = &ops;
-
-    rt_mtd_nand_register_device("nand0", &_partition[0]);
-
-    _partition[1].page_size   = NAND_PAGE_SIZE;
-    _partition[1].pages_per_block = 64;
-    _partition[1].block_total = 2048 - _partition[0].block_total;
-    _partition[1].oob_size    = 64;
-    _partition[1].oob_free    = 60;
-    _partition[1].block_start = _partition[0].block_end + 1;
-    _partition[1].block_end   = 2047;
-    _partition[1].ops         = &ops;
-
-    rt_mtd_nand_register_device("nand1", &_partition[1]);
+        rt_mtd_nand_register_device("nand", &_partition[0]);
+    }else{
+        return 1;	//错误，返回
+    }
+        
+    return 0;
 }
+
+
+//读取NAND FLASH的ID
+//返回值:0,成功;
+//    其他,失败
+rt_uint8_t NAND_ModeSet(rt_uint8_t mode)
+{   
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_FEATURE;//发送设置特性命令
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=0X01;		//地址为0X01,设置mode
+ 	*(rt_uint8_t*)NAND_ADDRESS=mode;					//P1参数,设置mode
+	*(rt_uint8_t*)NAND_ADDRESS=0;
+	*(rt_uint8_t*)NAND_ADDRESS=0;
+	*(rt_uint8_t*)NAND_ADDRESS=0; 
+
+    if(NAND_WaitForReady()==NSTA_READY)
+        return 0;               //成功
+    else 
+        return 1;				//失败
+}
+
+//读取NAND FLASH的ID
+//不同的NAND略有不同，请根据自己所使用的NAND FALSH数据手册来编写函数
+//返回值:NAND FLASH的ID值
+rt_uint32_t NAND_ReadID(void)
+{
+    rt_uint8_t deviceid[5]; 
+    rt_uint32_t id;  
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_READID; //发送读取ID命令
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=0X00;
+	//ID一共有5个字节
+    deviceid[0]=*(rt_uint8_t*)NAND_ADDRESS;      
+    deviceid[1]=*(rt_uint8_t*)NAND_ADDRESS;  
+    deviceid[2]=*(rt_uint8_t*)NAND_ADDRESS; 
+    deviceid[3]=*(rt_uint8_t*)NAND_ADDRESS; 
+    deviceid[4]=*(rt_uint8_t*)NAND_ADDRESS;  
+
+    id=((rt_uint32_t)deviceid[0])<<24|((rt_uint32_t)deviceid[1])<<16|((rt_uint32_t)deviceid[2])<<8|deviceid[3];
+    // NAND_DEBUG("NAND_ReadID = %08x",id);
+
+    return id;
+}  
+//读NAND状态
+//返回值:NAND状态值
+//bit0:0,成功;1,错误(编程/擦除/READ)
+//bit6:0,Busy;1,Ready
+rt_uint8_t NAND_ReadStatus(void)
+{
+    rt_uint8_t data=0; 
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_READSTA;//发送读状态命令
+    NAND_Delay(NAND_TWHR_DELAY);	            //等待tWHR,再读取状态寄存器
+ 	data=*(rt_uint8_t*)NAND_ADDRESS;			//读取状态值
+
+    return data;
+}
+//等待NAND准备好
+//返回值:NSTA_TIMEOUT 等待超时了
+//      NSTA_READY    已经准备好
+rt_uint8_t NAND_WaitForReady(void)
+{
+    rt_uint8_t status=0;
+    rt_uint32_t time=0; 
+	while(1)						//等待ready
+	{
+		status = NAND_ReadStatus();	//获取状态值
+		if(status&NSTA_READY)break;
+		time++;
+		if(time>=0X1FFFFFFF)return NSTA_TIMEOUT;//超时
+	}  
+
+    return NSTA_READY;//准备好
+}  
+//复位NAND
+//返回值:0,成功;
+//    其他,失败
+rt_uint8_t NAND_Reset(void)
+{ 
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD) = NAND_RESET;	//复位NAND
+    if(NAND_WaitForReady()==NSTA_READY)
+        return 0;           //复位成功
+    else 
+        return 1;			//复位失败
+} 
+//等待RB信号为某个电平
+//rb:0,等待RB==0
+//   1,等待RB==1
+//返回值:0,成功
+//       1,超时
+rt_uint8_t NAND_WaitRB(rt_uint8_t rb)
+{
+    rt_uint32_t time=0;  
+	while(time<0X1FFFFFF)
+	{
+		time++;
+		if(rt_pin_read(NAND_RB)==rb)return 0;
+	}
+	return 1;
+}
+//NAND延时
+//一个i++至少需要4ns
+void NAND_Delay(rt_uint32_t i)
+{
+	while(i>0)i--;
+}
+//读取NAND Flash的指定页指定列的数据(main区和spare区都可以使用此函数)
+//PageNum:要读取的页地址,范围:0~(block_pagenum*block_totalnum-1)
+//ColNum:要读取的列开始地址(也就是页内地址),范围:0~(page_totalsize-1)
+//*pBuffer:指向数据存储区
+//NumByteToRead:读取字节数(不能跨页读)
+//返回值:0,成功 
+//    其他,错误代码
+rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead)
+{
+    rt_uint16_t i=0;
+	rt_uint8_t res=0;
+	rt_uint8_t eccnum=0;		//需要计算的ECC个数，每NAND_ECC_SECTOR_SIZE字节计算一个ecc
+	rt_uint8_t eccstart=0;		//第一个ECC值所属的地址范围
+	rt_uint8_t errsta=0;
+	rt_uint8_t *p;
+     *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
+
+	res=NAND_WaitRB(0);			//等待RB=0 
+    if(res)return NSTA_TIMEOUT;	//超时退出
+    //下面2行代码是真正判断NAND是否准备好的
+	res=NAND_WaitRB(1);			//等待RB=1 
+    if(res)return NSTA_TIMEOUT;	//超时退出
+	if(NumByteToRead%NAND_ECC_SECTOR_SIZE)//不是NAND_ECC_SECTOR_SIZE的整数倍，不进行ECC校验
+	{ 
+		//读取NAND FLASH中的值
+		for(i=0;i<NumByteToRead;i++)
+		{
+			*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
+		}
+	}else
+	{
+		eccnum=NumByteToRead/NAND_ECC_SECTOR_SIZE;			//得到ecc计算次数
+		eccstart=ColNum/NAND_ECC_SECTOR_SIZE;
+		p=pBuffer;
+		for(res=0;res<eccnum;res++)
+		{
+            NAND_Handler.Instance->PCR2|=1<<6;              //使能ECC校验      
+			for(i=0;i<NAND_ECC_SECTOR_SIZE;i++)				//读取NAND_ECC_SECTOR_SIZE个数据
+			{
+				*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
+			}		
+			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //等待FIFO空	
+			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//读取硬件计算后的ECC值
+			NAND_Handler.Instance->PCR2&=~(1<<6);						//禁止ECC校验
+		} 
+		i=nand_dev.page_mainsize+0X10+eccstart*4;			//从spare区的0X10位置开始读取之前存储的ecc值
+		NAND_Delay(NAND_TRHW_DELAY);//等待tRHW 
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0X05;				//随机读指令
+		//发送地址
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0XE0;				//开始读数据
+		NAND_Delay(NAND_TWHR_DELAY);//等待tWHR 
+		pBuffer=(rt_uint8_t*)&nand_dev.ecc_rdbuf[eccstart];
+		for(i=0;i<4*eccnum;i++)								//读取保存的ECC值
+		{
+			*(rt_uint8_t*)pBuffer++= *(rt_uint8_t*)NAND_ADDRESS;
+		}			
+		for(i=0;i<eccnum;i++)								//检验ECC
+		{
+			if(nand_dev.ecc_rdbuf[i+eccstart]!=nand_dev.ecc_hdbuf[i+eccstart])//不相等,需要校正
+			{
+				NAND_DEBUG("err hd,rd:0x%x,0x%x\r\n",nand_dev.ecc_hdbuf[i+eccstart],nand_dev.ecc_rdbuf[i+eccstart]); 
+ 				NAND_DEBUG("eccnum,eccstart:%d,%d\r\n",eccnum,eccstart);	
+				NAND_DEBUG("PageNum,ColNum:%d,%d\r\n",PageNum,ColNum);	
+				res=NAND_ECC_Correction(p+NAND_ECC_SECTOR_SIZE*i,nand_dev.ecc_rdbuf[i+eccstart],nand_dev.ecc_hdbuf[i+eccstart]);//ECC校验
+				if(res)errsta=NSTA_ECC2BITERR;				//标记2BIT及以上ECC错误
+				else errsta=NSTA_ECC1BITERR;				//标记1BIT ECC错误
+			} 
+		} 		
+	}
+    if(NAND_WaitForReady()!=NSTA_READY)errsta=NSTA_ERROR;	//失败
+    return errsta;	//成功   
+} 
+//读取NAND Flash的指定页指定列的数据(main区和spare区都可以使用此函数),并对比(FTL管理时需要)
+//PageNum:要读取的页地址,范围:0~(block_pagenum*block_totalnum-1)
+//ColNum:要读取的列开始地址(也就是页内地址),范围:0~(page_totalsize-1)
+//CmpVal:要对比的值,以rt_uint32_t为单位
+//NumByteToRead:读取字数(以4字节为单位,不能跨页读)
+//NumByteEqual:从初始位置持续与CmpVal值相同的数据个数
+//返回值:0,成功
+//    其他,错误代码
+rt_uint8_t NAND_ReadPageComp(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_t CmpVal,rt_uint16_t NumByteToRead,rt_uint16_t *NumByteEqual)
+{
+    rt_uint16_t i=0;
+	rt_uint8_t res=0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
+
+	res=NAND_WaitRB(0);			//等待RB=0 
+	if(res)return NSTA_TIMEOUT;	//超时退出
+    //下面2行代码是真正判断NAND是否准备好的
+	res=NAND_WaitRB(1);			//等待RB=1 
+    if(res)return NSTA_TIMEOUT;	//超时退出  
+    for(i=0;i<NumByteToRead;i++)//读取数据,每次读4字节
+    {
+		if(*(rt_uint32_t*)NAND_ADDRESS!=CmpVal)break;	//如果有任何一个值,与CmpVal不相等,则退出.
+    }
+	*NumByteEqual=i;					//与CmpVal值相同的个数
+    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//失败
+    return 0;	//成功   
+} 
+//在NAND一页中写入指定个字节的数据(main区和spare区都可以使用此函数)
+//PageNum:要写入的页地址,范围:0~(block_pagenum*block_totalnum-1)
+//ColNum:要写入的列开始地址(也就是页内地址),范围:0~(page_totalsize-1)
+//pBbuffer:指向数据存储区
+//NumByteToWrite:要写入的字节数，该值不能超过该页剩余字节数！！！
+//返回值:0,成功 
+//    其他,错误代码
+rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite)
+{
+    rt_uint16_t i=0;  
+	rt_uint8_t res=0;
+	rt_uint8_t eccnum=0;		//需要计算的ECC个数，每NAND_ECC_SECTOR_SIZE字节计算一个ecc
+	rt_uint8_t eccstart=0;		//第一个ECC值所属的地址范围
+	
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+	NAND_Delay(NAND_TADL_DELAY);//等待tADL
+    // NAND_DEBUG("Write PageNum %d ColNum %d   %d data:\r\n",PageNum,ColNum,NumByteToWrite); 
+
+	if(NumByteToWrite%NAND_ECC_SECTOR_SIZE)//不是NAND_ECC_SECTOR_SIZE的整数倍，不进行ECC校验
+	{  
+		for(i=0;i<NumByteToWrite;i++)		//写入数据
+		{
+            // NAND_DEBUG("%02x ",*(rt_uint8_t*)pBuffer); 
+			*(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)pBuffer++;
+            // if((i%8) == 0)
+            //     NAND_DEBUG("\r\n");
+		}
+	}else
+	{
+		eccnum=NumByteToWrite/NAND_ECC_SECTOR_SIZE;			//得到ecc计算次数
+		eccstart=ColNum/NAND_ECC_SECTOR_SIZE; 
+ 		for(res=0;res<eccnum;res++)
+		{
+            NAND_Handler.Instance->PCR2|=1<<6;              //使能ECC校验      
+			for(i=0;i<NAND_ECC_SECTOR_SIZE;i++)				//读取NAND_ECC_SECTOR_SIZE个数据
+			{
+				*(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)pBuffer++;
+			}		
+			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //等待FIFO空	
+			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//读取硬件计算后的ECC值
+			NAND_Handler.Instance->PCR2&=~(1<<6);	
+		}  
+		i=nand_dev.page_mainsize+0x10+eccstart*4;			//计算写入ECC的spare区地址
+		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0X85;				//随机写指令
+		//发送地址
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
+		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+		pBuffer=(rt_uint8_t*)&nand_dev.ecc_hdbuf[eccstart];
+		for(i=0;i<eccnum;i++)					//写入ECC
+		{ 
+			for(res=0;res<4;res++)				 
+			{
+				*(rt_uint8_t*)NAND_ADDRESS=*(rt_uint8_t*)pBuffer++;
+			}
+		} 		
+	}
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
+ 	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+	if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//失败
+    return 0;//成功   
+}
+//在NAND一页中的指定地址开始,写入指定长度的恒定数字
+//PageNum:要写入的页地址,范围:0~(block_pagenum*block_totalnum-1)
+//ColNum:要写入的列开始地址(也就是页内地址),范围:0~(page_totalsize-1)
+//cval:要写入的指定常数
+//NumByteToWrite:要写入的字数(以4字节为单位)
+//返回值:0,成功 
+//    其他,错误代码
+rt_uint8_t NAND_WritePageConst(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_t cval,rt_uint16_t NumByteToWrite)
+{
+    rt_uint16_t i=0;  
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+	for(i=0;i<NumByteToWrite;i++)		//写入数据,每次写4字节
+	{
+		*(rt_uint32_t*)NAND_ADDRESS=cval;
+	} 
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
+ 	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//失败
+    return 0;//成功   
+}
+//将一页数据拷贝到另一页,不写入新数据
+//注意:源页和目的页要在同一个Plane内！
+//Source_PageNo:源页地址,范围:0~(block_pagenum*block_totalnum-1)
+//Dest_PageNo:目的页地址,范围:0~(block_pagenum*block_totalnum-1)  
+//返回值:0,成功
+//    其他,错误代码
+rt_uint8_t NAND_CopyPageWithoutWrite(rt_uint32_t Source_PageNum,rt_uint32_t Dest_PageNum)
+{
+	rt_uint8_t res=0;
+    rt_uint16_t source_block=0,dest_block=0;  
+    //判断源页和目的页是否在同一个plane中
+    source_block=Source_PageNum/nand_dev.block_pagenum;
+    dest_block=Dest_PageNum/nand_dev.block_pagenum;
+    if((source_block%2)!=(dest_block%2))return NSTA_ERROR;	//不在同一个plane内 
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD0;	//发送命令0X00
+    //发送源页地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Source_PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD1;//发送命令0X35 
+    //下面两行代码是等待R/B引脚变为低电平，其实主要起延时作用的，等待NAND操作R/B引脚。因为我们是通过
+    //将STM32的NWAIT引脚(NAND的R/B引脚)配置为普通IO，代码中通过读取NWAIT引脚的电平来判断NAND是否准备
+    //就绪的。这个也就是模拟的方法，所以在速度很快的时候有可能NAND还没来得及操作R/B引脚来表示NAND的忙
+    //闲状态，结果我们就读取了R/B引脚,这个时候肯定会出错的，事实上确实是会出错!大家也可以将下面两行
+    //代码换成延时函数,只不过这里我们为了效率所以没有用延时函数。
+	res=NAND_WaitRB(0);			//等待RB=0 
+	if(res)return NSTA_TIMEOUT;	//超时退出
+    //下面2行代码是真正判断NAND是否准备好的
+	res=NAND_WaitRB(1);			//等待RB=1 
+    if(res)return NSTA_TIMEOUT;	//超时退出 
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD2;  //发送命令0X85
+    //发送目的页地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Dest_PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD3;	//发送命令0X10 
+	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;	//NAND未准备好 
+    return 0;//成功   
+}
+
+//将一页数据拷贝到另一页,并且可以写入数据
+//注意:源页和目的页要在同一个Plane内！
+//Source_PageNo:源页地址,范围:0~(block_pagenum*block_totalnum-1)
+//Dest_PageNo:目的页地址,范围:0~(block_pagenum*block_totalnum-1)  
+//ColNo:页内列地址,范围:0~(page_totalsize-1)
+//pBuffer:要写入的数据
+//NumByteToWrite:要写入的数据个数
+//返回值:0,成功 
+//    其他,错误代码
+rt_uint8_t NAND_CopyPageWithWrite(rt_uint32_t Source_PageNum,rt_uint32_t Dest_PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite)
+{
+	rt_uint8_t res=0;
+    rt_uint16_t i=0;
+	rt_uint16_t source_block=0,dest_block=0;  
+	rt_uint8_t eccnum=0;		//需要计算的ECC个数，每NAND_ECC_SECTOR_SIZE字节计算一个ecc
+	rt_uint8_t eccstart=0;		//第一个ECC值所属的地址范围
+    //判断源页和目的页是否在同一个plane中
+    source_block=Source_PageNum/nand_dev.block_pagenum;
+    dest_block=Dest_PageNum/nand_dev.block_pagenum;
+    if((source_block%2)!=(dest_block%2))return NSTA_ERROR;//不在同一个plane内
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD0;  //发送命令0X00
+    //发送源页地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Source_PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD1;  //发送命令0X35
+    
+    //下面两行代码是等待R/B引脚变为低电平，其实主要起延时作用的，等待NAND操作R/B引脚。因为我们是通过
+    //将STM32的NWAIT引脚(NAND的R/B引脚)配置为普通IO，代码中通过读取NWAIT引脚的电平来判断NAND是否准备
+    //就绪的。这个也就是模拟的方法，所以在速度很快的时候有可能NAND还没来得及操作R/B引脚来表示NAND的忙
+    //闲状态，结果我们就读取了R/B引脚,这个时候肯定会出错的，事实上确实是会出错!大家也可以将下面两行
+    //代码换成延时函数,只不过这里我们为了效率所以没有用延时函数。
+	res=NAND_WaitRB(0);			//等待RB=0 
+	if(res)return NSTA_TIMEOUT;	//超时退出
+    //下面2行代码是真正判断NAND是否准备好的
+	res=NAND_WaitRB(1);			//等待RB=1 
+    if(res)return NSTA_TIMEOUT;	//超时退出 
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD2;  //发送命令0X85
+    //发送目的页地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Dest_PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>16); 
+    //发送页内列地址
+	NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+	if(NumByteToWrite%NAND_ECC_SECTOR_SIZE)//不是NAND_ECC_SECTOR_SIZE的整数倍，不进行ECC校验
+	{  
+		for(i=0;i<NumByteToWrite;i++)		//写入数据
+		{
+			*(rt_uint8_t*)NAND_ADDRESS=*(rt_uint8_t*)pBuffer++;
+		}
+	}else
+	{
+		eccnum=NumByteToWrite/NAND_ECC_SECTOR_SIZE;			//得到ecc计算次数
+		eccstart=ColNum/NAND_ECC_SECTOR_SIZE; 
+ 		for(res=0;res<eccnum;res++)
+		{
+            NAND_Handler.Instance->PCR2|=1<<6;              //使能ECC校验      
+			for(i=0;i<NAND_ECC_SECTOR_SIZE;i++)				//读取NAND_ECC_SECTOR_SIZE个数据
+			{
+				*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
+			}		
+			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //等待FIFO空	
+			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//读取硬件计算后的ECC值
+			NAND_Handler.Instance->PCR2&=~(1<<6);	
+		}  
+		i=nand_dev.page_mainsize+0X10+eccstart*4;			//计算写入ECC的spare区地址
+		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0X85;				//随机写指令
+		//发送地址
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
+		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+		pBuffer=(rt_uint8_t*)&nand_dev.ecc_hdbuf[eccstart];
+		for(i=0;i<eccnum;i++)					//写入ECC
+		{ 
+			for(res=0;res<4;res++)				 
+			{
+				*(rt_uint8_t*)NAND_ADDRESS=*(rt_uint8_t*)pBuffer++;
+			}
+		} 		
+	}
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD3;	//发送命令0X10 
+ 	rt_thread_mdelay(NAND_TPROG_DELAY);							//等待tPROG
+    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;	//失败
+    return 0;	//成功   
+} 
+//读取spare区中的数据
+//PageNum:要写入的页地址,范围:0~(block_pagenum*block_totalnum-1)
+//ColNum:要写入的spare区地址(spare区中哪个地址),范围:0~(page_sparesize-1) 
+//pBuffer:接收数据缓冲区 
+//NumByteToRead:要读取的字节数(不大于page_sparesize)
+//返回值:0,成功
+//    其他,错误代码
+rt_uint8_t NAND_ReadSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead)
+{
+    rt_uint8_t temp=0;
+    rt_uint8_t remainbyte=0;
+    remainbyte=nand_dev.page_sparesize-ColNum;
+    if(NumByteToRead>remainbyte) NumByteToRead=remainbyte;  //确保要写入的字节数不大于spare剩余的大小
+    temp=NAND_ReadPage(PageNum,ColNum+nand_dev.page_mainsize,pBuffer,NumByteToRead);//读取数据
+    return temp;
+} 
+//向spare区中写数据
+//PageNum:要写入的页地址,范围:0~(block_pagenum*block_totalnum-1)
+//ColNum:要写入的spare区地址(spare区中哪个地址),范围:0~(page_sparesize-1)  
+//pBuffer:要写入的数据首地址 
+//NumByteToWrite:要写入的字节数(不大于page_sparesize)
+//返回值:0,成功
+//    其他,失败
+rt_uint8_t NAND_WriteSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite)
+{
+    rt_uint8_t temp=0;
+    rt_uint8_t remainbyte=0;
+    remainbyte=nand_dev.page_sparesize-ColNum;
+    if(NumByteToWrite>remainbyte) NumByteToWrite=remainbyte;  //确保要读取的字节数不大于spare剩余的大小
+    temp=NAND_WritePage(PageNum,ColNum+nand_dev.page_mainsize,pBuffer,NumByteToWrite);//读取
+    return temp;
+} 
+//擦除一个块
+//BlockNum:要擦除的BLOCK编号,范围:0-(block_totalnum-1)
+//返回值:0,擦除成功
+//    其他,擦除失败
+rt_uint8_t NAND_EraseBlock(rt_uint32_t BlockNum)
+{
+    if(nand_dev.id==W29N02GVSIAA)BlockNum<<=5;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_ERASE0;
+    //发送块地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)BlockNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(BlockNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(BlockNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_ERASE1;
+	rt_thread_mdelay(NAND_TBERS_DELAY);		//等待擦除成功
+	if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//失败
+    return 0;	//成功   
+} 
+//全片擦除NAND FLASH
+void NAND_EraseChip(void)
+{
+    rt_uint8_t status;
+    rt_uint16_t i=0;
+    for(i=0;i<nand_dev.block_totalnum;i++) //循环擦除所有的块
+    {
+        status=NAND_EraseBlock(i);
+        if(status)
+            NAND_DEBUG("Erase %d block fail!!，ERRORCODE %d\r\n",i,status);//擦除失败
+    }
+}
+
+//获取ECC的奇数位/偶数位
+//oe:0,偶数位
+//   1,奇数位
+//eccval:输入的ecc值
+//返回值:计算后的ecc值(最多16位)
+rt_uint16_t NAND_ECC_Get_OE(rt_uint8_t oe,rt_uint32_t eccval)
+{
+	rt_uint8_t i;
+	rt_uint16_t ecctemp=0;
+	for(i=0;i<24;i++)
+	{
+		if((i%2)==oe)
+		{
+			if((eccval>>i)&0X01)ecctemp+=1<<(i>>1); 
+		}
+	}
+	return ecctemp;
+} 
+//ECC校正函数
+//eccrd:读取出来,原来保存的ECC值
+//ecccl:读取数据时,硬件计算的ECC只
+//返回值:0,错误已修正
+//    其他,ECC错误(有大于2个bit的错误,无法恢复)
+rt_uint8_t NAND_ECC_Correction(rt_uint8_t* data_buf,rt_uint32_t eccrd,rt_uint32_t ecccl)
+{
+	rt_uint16_t eccrdo,eccrde,eccclo,ecccle;
+	rt_uint16_t eccchk=0;
+	rt_uint16_t errorpos=0; 
+	rt_uint32_t bytepos=0;  
+	eccrdo=NAND_ECC_Get_OE(1,eccrd);	//获取eccrd的奇数位
+	eccrde=NAND_ECC_Get_OE(0,eccrd);	//获取eccrd的偶数位
+	eccclo=NAND_ECC_Get_OE(1,ecccl);	//获取ecccl的奇数位
+	ecccle=NAND_ECC_Get_OE(0,ecccl); 	//获取ecccl的偶数位
+	eccchk=eccrdo^eccrde^eccclo^ecccle;
+	if(eccchk==0XFFF)	//全1,说明只有1bit ECC错误
+	{
+		errorpos=eccrdo^eccclo; 
+		NAND_DEBUG("errorpos:%d\r\n",errorpos); 
+		bytepos=errorpos/8; 
+		data_buf[bytepos]^=1<<(errorpos%8);
+	}else				//不是全1,说明至少有2bit ECC错误,无法修复
+	{
+		NAND_DEBUG("2bit ecc error or more\r\n");
+		return 1;
+	} 
+	return 0;
+}
+ 
 
 #include <finsh.h>
 void nread(rt_uint32_t partion, rt_uint32_t page)

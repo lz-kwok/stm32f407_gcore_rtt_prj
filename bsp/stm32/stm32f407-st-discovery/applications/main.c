@@ -18,12 +18,15 @@
 
 #define usbfs     GET_PIN(C, 9)
 
+rt_uint8_t data[128];
+rt_uint8_t wdata[64] = {1,2,3,4,5,6,7,8,9,10,12,13,14};
+
 
 int main(void)
 {
+    int i ;
     g_Gui_init();
-
- 
+    rt_hw_mtd_nand_init();
 
     while (RT_TRUE)
     {   
