@@ -11,15 +11,19 @@
 - 进阶使用方法
 
 
-## 开发板介绍
+## 核心板介绍
 
-开发板外观如下图所示：
+核心板外观如下图所示：
 
 ![board](figures/board.png)
 
 该开发板常用 **板载资源** 如下：
 
-- MCU：STM32F407VGT6，主频 168MHz，1024KB FLASH ，192KB RAM
+- MCU：STM32F407ZET6，主频 168MHz，1024KB FLASH ，192KB RAM
+- 板载资源
+  - NANDFLASH：W29N02GVSIAA
+  - 网口：LAN8720A
+  - GPRS：AIR202
 - 常用外设
   - LED：3个用户 LEDs
   - 按键，1个，Reset
@@ -91,5 +95,5 @@ msh >
 
 ## 联系人信息
 
-维护人:
+维护人:Leon Kwok
 
