@@ -633,7 +633,7 @@ static int rt_hw_stm32_eth_init(void)
     stm32_eth_device.parent.eth_tx     = rt_stm32_eth_tx;
 
     /* register eth device */
-    state = eth_device_init(&(stm32_eth_device.parent), "e0");
+    state = eth_device_init(&(stm32_eth_device.parent), "eth0");
     if (RT_EOK == state)
     {
         LOG_D("emac device init success");

@@ -3,6 +3,15 @@
         "drv_nand.h": "c",
         "stm32f4xx_hal.h": "c",
         "stm32f4xx_hal_conf.h": "c",
-        "main.h": "c"
+        "main.h": "c",
+        "gui.h": "c",
+        "board.h": "c",
+        "stm32f4xx.h": "c",
+        "rtthread.h": "c",
+        "rtservice.h": "c",
+        "rtdef.h": "c",
+        "rtconfig.h": "c",
+        "rtdebug.h": "c",
+        "rtm.h": "c"
     }
 }

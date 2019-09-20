@@ -55,7 +55,7 @@ extern "C"{
 /**
  * \def MAX_DIRTY_BUF_GROUPS
  */
-#define MAX_DIRTY_BUF_GROUPS    3
+#define MAX_DIRTY_BUF_GROUPS    1
 
 
 /** 

@@ -60,7 +60,7 @@
  * \note uffs cache the block info for opened directories and files,
  *       a practical value is 5 ~ MAX_OBJECT_HANDLE
  */
-#define MAX_CACHED_BLOCK_INFO	6//50
+#define MAX_CACHED_BLOCK_INFO	5//50
 
 /** 
  * \def MAX_PAGE_BUFFERS
@@ -68,14 +68,14 @@
  *       but few writing performance will be improved when this 
  *       value is become larger than 'max pages per block'
  */
-#define MAX_PAGE_BUFFERS		10//40
+#define MAX_PAGE_BUFFERS		5//40
 
 
 /** 
  * \def CLONE_BUFFER_THRESHOLD
  * \note reserve buffers for clone. 1 or 2 should be enough.
  */
-#define CLONE_BUFFERS_THRESHOLD	2
+#define CLONE_BUFFERS_THRESHOLD	1
 
 /**
  * \def MAX_SPARE_BUFFERS
@@ -92,12 +92,12 @@
  *
  *       the smaller the value the frequently the buffer will be flushed.
  */
-#define MAX_DIRTY_PAGES_IN_A_BLOCK 7//32	
+#define MAX_DIRTY_PAGES_IN_A_BLOCK 2//32	
 
 /**
  * \def MAX_DIRTY_BUF_GROUPS
  */
-#define MAX_DIRTY_BUF_GROUPS	3
+#define MAX_DIRTY_BUF_GROUPS	1
 
 /**
  * \def CONFIG_ENABLE_UFFS_DEBUG_MSG
@@ -207,7 +207,7 @@
  * \def CONFIG_PAGE_WRITE_VERIFY
  * \note verify page data after write, for extra safe data storage.
  */
-#define CONFIG_PAGE_WRITE_VERIFY
+// #define CONFIG_PAGE_WRITE_VERIFY
 
 /**
  * \def CONFIG_BAD_BLOCK_POLICY_STRICT

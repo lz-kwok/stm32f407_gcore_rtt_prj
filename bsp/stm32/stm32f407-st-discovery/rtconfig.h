@@ -175,7 +175,7 @@
 
 /* GUI Features */
 
-#define RT_USING_NANOGUI
+// #define RT_USING_NANOGUI
 
 /* RT-Thread online packages */
 

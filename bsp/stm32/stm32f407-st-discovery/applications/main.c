@@ -16,7 +16,6 @@
 
 
 
-#define usbfs     GET_PIN(C, 9)
 
 rt_uint8_t data[128];
 rt_uint8_t wdata[64] = {1,2,3,4,5,6,7,8,9,10,12,13,14};
@@ -46,3 +45,19 @@ int main(void)
 
     return RT_EOK;
 }
+
+
+
+ void phy_reset(void)
+ {
+     int i,j=0;
+     rt_pin_write(phy_rst_pin, PIN_HIGH);
+     for(i=0;i<=1000;i++){
+         for(j=0;j<=1000;j++);
+     }
+     rt_pin_write(phy_rst_pin, PIN_LOW);
+     for(i=0;i<=1000;i++){
+         for(j=0;j<=1000;j++);
+     }
+     rt_pin_write(phy_rst_pin, PIN_HIGH);
+ }
