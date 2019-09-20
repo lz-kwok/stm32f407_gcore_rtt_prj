@@ -20,7 +20,11 @@
  * @addtogroup FsApi
  */
 /*@{*/
-
+const struct dfs_mount_tbl mount_table[] =
+{
+    {"nand", "/", "uffs", 0, 0},
+    {0}
+};
 /**
  * this function will register a file system instance to device file system.
  *
