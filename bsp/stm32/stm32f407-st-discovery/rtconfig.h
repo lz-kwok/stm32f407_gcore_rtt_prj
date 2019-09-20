@@ -77,8 +77,12 @@
 #define DFS_USING_WORKDIR
 #define DFS_FILESYSTEMS_MAX 2
 #define DFS_FILESYSTEM_TYPES_MAX 2
-#define DFS_FD_MAX 16
+#define DFS_FD_MAX 4
+#define RT_USING_DFS_MNTTABLE
 #define RT_USING_DFS_DEVFS
+#define RT_USING_DFS_UFFS
+#define RT_UFFS_ECC_MODE_1
+#define RT_UFFS_ECC_MODE 1
 
 /* Device Drivers */
 
