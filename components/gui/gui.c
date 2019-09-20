@@ -98,3 +98,4 @@ rt_err_t g_Gui_init(void)
 
     return rt_thread_startup(&gui_thread);
 }
+INIT_COMPONENT_EXPORT(g_Gui_init);	

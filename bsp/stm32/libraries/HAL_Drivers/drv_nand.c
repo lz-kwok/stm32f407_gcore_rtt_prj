@@ -184,7 +184,7 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
         
     return 0;
 }
-
+INIT_DEVICE_EXPORT(rt_hw_mtd_nand_init);
 
 //读取NAND FLASH的ID
 //返回值:0,成功;
