@@ -91,7 +91,7 @@ rt_err_t g_Gui_init(void)
             RT_IPC_FLAG_FIFO);
 
     rt_thread_init(&gui_thread,
-                   "usbd",
+                   "gui",
                    led_gui_entry, RT_NULL,
                    gui_thread_stack, RT_GUI_THREAD_STACK_SZ,
                    RT_GUI_THREAD_PRIO, 20);
