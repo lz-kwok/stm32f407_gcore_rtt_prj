@@ -61,7 +61,8 @@ struct BlockTypeStatSt {
 	int file;
 	int data;
 };
-
+#include "board.h"
+CCMRAM rt_uint8_t tree_buf_ccm[32768];
 /** 
  * \brief initialize tree buffers
  * \param[in] dev uffs device
@@ -80,7 +81,10 @@ URET uffs_TreeInit(uffs_Device *dev)
 
 	if (dev->mem.tree_nodes_pool_size == 0) {
 		if (dev->mem.malloc) {
-			dev->mem.tree_nodes_pool_buf = dev->mem.malloc(dev, size * num);
+			// dev->mem.tree_nodes_pool_buf = dev->mem.malloc(dev, size * num);
+			memset(tree_buf_ccm,0x0,sizeof(tree_buf_ccm));
+			dev->mem.tree_nodes_pool_buf = (void *)tree_buf_ccm;
+			rt_kprintf("%s malloc cache size:%d\r\n",__func__,size * num);
 			if (dev->mem.tree_nodes_pool_buf)
 				dev->mem.tree_nodes_pool_size = size * num;
 		}

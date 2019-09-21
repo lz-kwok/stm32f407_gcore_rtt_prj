@@ -20,8 +20,8 @@ extern "C" {
 
 #define RT_GUI_THREAD_STACK_SZ      256
 #define RT_GUI_THREAD_PRIO          12
-#define GUI_MQ_MSG_SZ               32
-#define GUI_MQ_MAX_MSG              16
+#define GUI_MQ_MSG_SZ               16
+#define GUI_MQ_MAX_MSG              8
 
 void g_Gui_show_pic(const char *pic);
 rt_err_t g_Gui_init(void);

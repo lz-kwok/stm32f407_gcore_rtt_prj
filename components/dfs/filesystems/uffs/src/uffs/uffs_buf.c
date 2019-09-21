@@ -78,6 +78,9 @@ void uffs_BufInspect(uffs_Device *dev)
 					"--------------------------------------------"  TENDSTR);
 }
 
+
+#include "board.h"
+CCMRAM rt_uint8_t uffs_buf_ccm[20880];
 /**
  * \brief initialize page buffers for device
  * in UFFS, each device has one buffer pool
@@ -112,7 +115,10 @@ URET uffs_BufInit(uffs_Device *dev, int buf_max, int dirty_buf_max)
 	size = (sizeof(uffs_Buf) + dev->com.pg_size) * buf_max;
 	if (dev->mem.pagebuf_pool_size == 0) {
 		if (dev->mem.malloc) {
-			dev->mem.pagebuf_pool_buf = dev->mem.malloc(dev, size);
+			// dev->mem.pagebuf_pool_buf = dev->mem.malloc(dev, size);
+			memset(uffs_buf_ccm,0x0,sizeof(uffs_buf_ccm));
+			dev->mem.pagebuf_pool_buf = (void *)uffs_buf_ccm;
+			rt_kprintf("%s malloc cache size:%d\r\n",__func__,size);
 			if (dev->mem.pagebuf_pool_buf)
 				dev->mem.pagebuf_pool_size = size;
 		}

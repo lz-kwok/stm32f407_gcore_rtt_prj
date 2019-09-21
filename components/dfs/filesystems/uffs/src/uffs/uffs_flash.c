@@ -185,7 +185,8 @@ static int CalculateSpareDataSize(uffs_Device *dev)
 	return n + 1;		// plus one seal byte.
 }
 
-
+#include "board.h"
+CCMRAM rt_uint8_t uffs_flash_ccm[UFFS_SPARE_BUFFER_SIZE];
 /**
  * Initialize UFFS flash interface
  */
@@ -197,7 +198,10 @@ URET uffs_FlashInterfaceInit(uffs_Device *dev)
 
 	if (dev->mem.spare_pool_size == 0) {
 		if (dev->mem.malloc) {
-			dev->mem.spare_pool_buf = dev->mem.malloc(dev, UFFS_SPARE_BUFFER_SIZE);
+			// dev->mem.spare_pool_buf = dev->mem.malloc(dev, UFFS_SPARE_BUFFER_SIZE);
+			memset(uffs_flash_ccm,0x0,UFFS_SPARE_BUFFER_SIZE);
+			dev->mem.spare_pool_buf = (void *)uffs_flash_ccm;
+			rt_kprintf("%s malloc cache size:%d\r\n",__func__,UFFS_SPARE_BUFFER_SIZE);
 			if (dev->mem.spare_pool_buf)
 				dev->mem.spare_pool_size = UFFS_SPARE_BUFFER_SIZE;
 		}

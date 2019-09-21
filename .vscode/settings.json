@@ -14,6 +14,7 @@
         "rtdebug.h": "c",
         "rtm.h": "c",
         "memp.h": "c",
-        "memp_std.h": "c"
+        "memp_std.h": "c",
+        "drv_common.h": "c"
     }
 }

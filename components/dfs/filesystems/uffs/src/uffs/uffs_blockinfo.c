@@ -47,6 +47,8 @@
 
 #define UFFS_CLONE_BLOCK_INFO_NEXT ((uffs_BlockInfo *)(-2))
 
+#include "board.h"
+CCMRAM rt_uint8_t uffs_block_ccm[6288];
 /**
  * \brief before block info cache is enable,
  *			this function should be called to initialize it
@@ -79,7 +81,10 @@ URET uffs_BlockInfoInitCache(uffs_Device *dev, int maxCachedBlocks)
 
 	if (dev->mem.blockinfo_pool_size == 0) {
 		if (dev->mem.malloc) {
-			dev->mem.blockinfo_pool_buf = dev->mem.malloc(dev, size);
+			// dev->mem.blockinfo_pool_buf = dev->mem.malloc(dev, size);
+			memset(uffs_block_ccm,0x0,sizeof(uffs_block_ccm));
+			dev->mem.blockinfo_pool_buf = (void *)uffs_block_ccm;
+			rt_kprintf("%s malloc cache size:%d\r\n",__func__,size);
 			if (dev->mem.blockinfo_pool_buf)
 				dev->mem.blockinfo_pool_size = size;
 		}

@@ -185,21 +185,21 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
         _partition[0].oob_size    = 64;
         _partition[0].oob_free    = 60;
         _partition[0].block_start = 0;
-        _partition[0].block_end   = 1023;
+        _partition[0].block_end   = 2047;
         _partition[0].ops         = &ops;
 
         rt_mtd_nand_register_device("nand0", &_partition[0]);
 
-        _partition[1].page_size   = NAND_PAGE_SIZE;
-        _partition[1].pages_per_block = 64;
-        _partition[1].block_total = 2048 - _partition[0].block_total;
-        _partition[1].oob_size    = 64;
-        _partition[1].oob_free    = 60;
-        _partition[1].block_start = _partition[0].block_end + 1;
-        _partition[1].block_end   = 2047;
-        _partition[1].ops         = &ops;
+        // _partition[1].page_size   = NAND_PAGE_SIZE;
+        // _partition[1].pages_per_block = 64;
+        // _partition[1].block_total = 2048 - _partition[0].block_total;
+        // _partition[1].oob_size    = 64;
+        // _partition[1].oob_free    = 60;
+        // _partition[1].block_start = _partition[0].block_end + 1;
+        // _partition[1].block_end   = 2047;
+        // _partition[1].ops         = &ops;
 
-        rt_mtd_nand_register_device("nand1", &_partition[1]);
+        // rt_mtd_nand_register_device("nand1", &_partition[1]);
     }else{
         return 1;	//错误，返回
     }

@@ -575,7 +575,6 @@ static void phy_monitor_thread_entry(void *parameter)
 static int rt_hw_stm32_eth_init(void)
 {
     rt_err_t state = RT_EOK;
-
     /* Prepare receive and send buffers */
     Rx_Buff = (rt_uint8_t *)rt_calloc(ETH_RXBUFNB, ETH_MAX_PACKET_SIZE);
     if (Rx_Buff == RT_NULL)
@@ -664,15 +663,15 @@ static int rt_hw_stm32_eth_init(void)
 __exit:
     if (state != RT_EOK)
     {
-        if (Rx_Buff)
-        {
-            rt_free(Rx_Buff);
-        }
+        // if (Rx_Buff)
+        // {
+        //     rt_free(Rx_Buff);
+        // }
 
-        if (Tx_Buff)
-        {
-            rt_free(Tx_Buff);
-        }
+        // if (Tx_Buff)
+        // {
+        //     rt_free(Tx_Buff);
+        // }
 
         if (DMARxDscrTab)
         {
