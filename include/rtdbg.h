@@ -68,7 +68,7 @@
 
 #ifdef DBG_LVL
 #ifndef DBG_LEVEL
-#define DBG_LEVEL         DBG_LVL
+#define DBG_LEVEL         DBG_LOG
 #endif
 #else
 /* compatible with old version */

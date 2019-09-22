@@ -971,7 +971,7 @@ int netdev_ifconfig(int argc, char **argv)
     }
     else
     {
-        rt_kprintf("bad parameter! e.g: ifconfig e0 192.168.1.30 192.168.1.1 255.255.255.0\n");
+        rt_kprintf("bad parameter! e.g: ifconfig eth0 192.168.1.30 192.168.1.1 255.255.255.0\n");
     }
 
     return 0;

@@ -86,6 +86,7 @@ static rt_err_t rt_stm32_eth_init(rt_device_t dev)
     EthHandle.Instance = ETH;
     EthHandle.Init.MACAddr = (rt_uint8_t *)&stm32_eth_device.dev_addr[0];
     EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_DISABLE;
+    EthHandle.Init.PhyAddress = LAN8742A_PHY_ADDRESS;
     EthHandle.Init.Speed = ETH_SPEED_100M;
     EthHandle.Init.DuplexMode = ETH_MODE_FULLDUPLEX;
     EthHandle.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
@@ -407,7 +408,7 @@ static void eth_phy_isr(void *args)
         if (link_status == 0)
         {
             link_status = 1;
-            LOG_D("link up");
+            LOG_I("link up");
             /* send link up. */
             eth_device_linkchange(&stm32_eth_device.parent, RT_TRUE);
         }
@@ -466,7 +467,11 @@ static void phy_monitor_thread_entry(void *parameter)
     HAL_ETH_WritePHYRegister(&EthHandle, PHY_BASIC_CONTROL_REG, PHY_RESET_MASK);
     rt_thread_mdelay(2000);
     HAL_ETH_WritePHYRegister(&EthHandle, PHY_BASIC_CONTROL_REG, PHY_AUTO_NEGOTIATION_MASK);
-
+    rt_thread_mdelay(1000);
+    HAL_ETH_ReadPHYRegister(&EthHandle, PHY_ID1_REG, (uint32_t *)&status);
+    LOG_D("PHY Identifier 1 Register:0x%04X", status);
+    HAL_ETH_ReadPHYRegister(&EthHandle, PHY_ID2_REG, (uint32_t *)&status);
+    LOG_D("PHY Identifier 2 Register:0x%04X", status);
     while (1)
     {
         phy_speed_new = 0;
@@ -519,27 +524,27 @@ static void phy_monitor_thread_entry(void *parameter)
         {
             if (phy_speed_new & PHY_LINK_MASK)
             {
-                LOG_D("link up ");
+                LOG_I("link up ");
 
                 if (phy_speed_new & PHY_100M_MASK)
                 {
-                    LOG_D("100Mbps");
+                    LOG_I("100Mbps");
                     stm32_eth_device.ETH_Speed = ETH_SPEED_100M;
                 }
                 else
                 {
                     stm32_eth_device.ETH_Speed = ETH_SPEED_10M;
-                    LOG_D("10Mbps");
+                    LOG_I("10Mbps");
                 }
 
                 if (phy_speed_new & PHY_FULL_DUPLEX_MASK)
                 {
-                    LOG_D("full-duplex");
+                    LOG_I("full-duplex");
                     stm32_eth_device.ETH_Mode = ETH_MODE_FULLDUPLEX;
                 }
                 else
                 {
-                    LOG_D("half-duplex");
+                    LOG_I("half-duplex");
                     stm32_eth_device.ETH_Mode = ETH_MODE_HALFDUPLEX;
                 }
 
@@ -663,15 +668,15 @@ static int rt_hw_stm32_eth_init(void)
 __exit:
     if (state != RT_EOK)
     {
-        // if (Rx_Buff)
-        // {
-        //     rt_free(Rx_Buff);
-        // }
+        if (Rx_Buff)
+        {
+            rt_free(Rx_Buff);
+        }
 
-        // if (Tx_Buff)
-        // {
-        //     rt_free(Tx_Buff);
-        // }
+        if (Tx_Buff)
+        {
+            rt_free(Tx_Buff);
+        }
 
         if (DMARxDscrTab)
         {

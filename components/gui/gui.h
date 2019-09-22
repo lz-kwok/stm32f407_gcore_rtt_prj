@@ -18,7 +18,7 @@ extern "C" {
 #define DigitLedclk     GET_PIN(E, 15)
 
 
-#define RT_GUI_THREAD_STACK_SZ      256
+#define RT_GUI_THREAD_STACK_SZ      512
 #define RT_GUI_THREAD_PRIO          12
 #define GUI_MQ_MSG_SZ               16
 #define GUI_MQ_MAX_MSG              8

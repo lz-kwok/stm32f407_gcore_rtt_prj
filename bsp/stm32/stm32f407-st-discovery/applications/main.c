@@ -14,27 +14,26 @@
 #include <board.h>
 #include <gui.h>
 
-
+void phy_reset(void)
+{
+    rt_pin_mode(phy_rst_pin,PIN_MODE_OUTPUT);
+    rt_pin_write(phy_rst_pin, PIN_HIGH);
+    rt_thread_mdelay(500);
+    rt_pin_write(phy_rst_pin, PIN_LOW);
+    rt_thread_mdelay(500);
+    rt_kprintf("%s done\r\n",__func__);
+    rt_pin_write(phy_rst_pin, PIN_HIGH);
+}
 
 
 int main(void)
 {
-    int i ;
-
+    rt_thread_mdelay(5000);
+    // phy_reset();
     while (RT_TRUE)
     {   
         rt_thread_mdelay(2000);
-        g_Gui_show_pic("1");
-        rt_thread_mdelay(2000);
-        g_Gui_show_pic("2");
-        rt_thread_mdelay(2000);
-        g_Gui_show_pic("3");
-        rt_thread_mdelay(2000);
-        g_Gui_show_pic("4");
-        rt_thread_mdelay(2000);
         g_Gui_show_pic("5");
-        rt_thread_mdelay(2000);
-        g_Gui_show_pic("A");
         rt_thread_mdelay(2000);
         g_Gui_show_pic("F");
     }
@@ -44,16 +43,3 @@ int main(void)
 
 
 
- void phy_reset(void)
- {
-     int i,j=0;
-     rt_pin_write(phy_rst_pin, PIN_HIGH);
-     for(i=0;i<=1000;i++){
-         for(j=0;j<=1000;j++);
-     }
-     rt_pin_write(phy_rst_pin, PIN_LOW);
-     for(i=0;i<=1000;i++){
-         for(j=0;j<=1000;j++);
-     }
-     rt_pin_write(phy_rst_pin, PIN_HIGH);
- }
