@@ -85,8 +85,8 @@ static rt_err_t rt_stm32_eth_init(rt_device_t dev)
     /* ETHERNET Configuration */
     EthHandle.Instance = ETH;
     EthHandle.Init.MACAddr = (rt_uint8_t *)&stm32_eth_device.dev_addr[0];
-    EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_DISABLE;
-    EthHandle.Init.PhyAddress = LAN8742A_PHY_ADDRESS;
+    EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
+    EthHandle.Init.PhyAddress = 0;
     EthHandle.Init.Speed = ETH_SPEED_100M;
     EthHandle.Init.DuplexMode = ETH_MODE_FULLDUPLEX;
     EthHandle.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
@@ -465,13 +465,26 @@ static void phy_monitor_thread_entry(void *parameter)
     /* RESET PHY */
     LOG_D("RESET PHY!");
     HAL_ETH_WritePHYRegister(&EthHandle, PHY_BASIC_CONTROL_REG, PHY_RESET_MASK);
-    rt_thread_mdelay(2000);
+    rt_uint32_t i;
+    for (i = 0; i <= 20; i++){
+        HAL_ETH_ReadPHYRegister(&EthHandle, PHY_BASIC_CONTROL_REG, (uint32_t *)&status);
+        LOG_D("PHY_BASIC_CONTROL_REG :0x%04X", status);
+        rt_thread_mdelay(100);
+        if(status & PHY_RESET_MASK){
+            LOG_D("soft reset done:0x%04X", status);
+            break;
+        }
+        HAL_ETH_WritePHYRegister(&EthHandle, PHY_BASIC_CONTROL_REG, PHY_RESET_MASK);
+    }
+    // rt_thread_mdelay(2000);
+    
     HAL_ETH_WritePHYRegister(&EthHandle, PHY_BASIC_CONTROL_REG, PHY_AUTO_NEGOTIATION_MASK);
     rt_thread_mdelay(1000);
     HAL_ETH_ReadPHYRegister(&EthHandle, PHY_ID1_REG, (uint32_t *)&status);
     LOG_D("PHY Identifier 1 Register:0x%04X", status);
     HAL_ETH_ReadPHYRegister(&EthHandle, PHY_ID2_REG, (uint32_t *)&status);
     LOG_D("PHY Identifier 2 Register:0x%04X", status);
+    
     while (1)
     {
         phy_speed_new = 0;

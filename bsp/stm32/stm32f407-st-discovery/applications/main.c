@@ -28,14 +28,19 @@ void phy_reset(void)
 
 int main(void)
 {
-    rt_thread_mdelay(5000);
+    // rt_thread_mdelay(5000);
+    // rt_pin_mode(phy_rst_pin,PIN_MODE_INPUT_PULLDOWN);
+    // rt_pin_write(phy_rst_pin, PIN_LOW);
+    // rt_thread_mdelay(500);
+    // rt_pin_mode(phy_rst_pin,PIN_MODE_OUTPUT_OD);
+    // rt_pin_write(phy_rst_pin, PIN_HIGH);
     // phy_reset();
     while (RT_TRUE)
     {   
         rt_thread_mdelay(2000);
-        g_Gui_show_pic("5");
-        rt_thread_mdelay(2000);
-        g_Gui_show_pic("F");
+        // g_Gui_show_pic("5");
+        // rt_thread_mdelay(2000);
+        // g_Gui_show_pic("F");
     }
 
     return RT_EOK;
