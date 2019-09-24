@@ -22,7 +22,7 @@
 - MCU：STM32F407ZET6，主频 168MHz，1024KB FLASH ，192KB RAM
 - 板载资源
   - NANDFLASH：W29N02GVSIAA
-  - 网口：LAN8720A
+  - 网口：LAN8742A-CZ-TR
   - GPRS：AIR202
 - 常用外设
   - LED：3个用户 LEDs
@@ -38,12 +38,12 @@
 | **片上外设** | **支持情况** |               **备注**                |
 | :------------ | :----------: | :-----------------------------------: |
 | GPIO         |     支持     | PA0, PA1... PH1 ---> PIN: 0, 1...144 |
-| UART         |     支持     |              UART1              |
-| SPI          |     支持     |               SPI1               |
+| UART         |     支持     |               UART1                   |
+| SPI          |     支持     |               SPI1                    |
 | I2C          |     支持     |               软件 I2C                |
 | USB          |     支持     |   虚拟串口、USB-DEVICE、USB-HOST      |
 | FSMC         |     支持     |             NandFlash                 |
-
+| RMII         |     支持     |             Ethernet                  |
 
 ## 使用说明
 
