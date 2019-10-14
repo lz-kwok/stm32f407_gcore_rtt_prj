@@ -134,8 +134,8 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
     FMC_NAND_PCC_TimingTypeDef ComSpaceTiming,AttSpaceTiming;
                                               
     NAND_Handler.Instance=FMC_NAND_DEVICE;
-    NAND_Handler.Init.NandBank=FSMC_NAND_BANK2;                          //NAND挂在BANK3上
-    NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_ENABLE;    //关闭等待特性
+    NAND_Handler.Init.NandBank=FSMC_NAND_BANK2;                          //NAND挂在BANK2上
+    NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_ENABLE;     //关闭等待特性
     NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;     //8位数据宽度
     NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;              //不使用ECC
     NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_256BYTE;      //ECC页大小为2k
@@ -168,38 +168,16 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
 
         rt_mutex_init(&_device.lock, "nand", RT_IPC_FLAG_FIFO);
 
-        // _partition[0].page_size   = 2048;
-        // _partition[0].pages_per_block = 64;
-        // _partition[0].block_total = 2048;
-        // _partition[0].oob_size    = 64;
-        // _partition[0].oob_free    = 60;
-        // _partition[0].block_start = 0;
-        // _partition[0].block_end   = 2047;
-        // _partition[0].ops         = &ops;
-
-        // rt_mtd_nand_register_device("nand", &_partition[0]);
-
         _partition[0].page_size   = 2048;
         _partition[0].pages_per_block = 64;
-        _partition[0].block_total = 256;
+        _partition[0].block_total = 2048;
         _partition[0].oob_size    = 64;
         _partition[0].oob_free    = 60;
         _partition[0].block_start = 0;
         _partition[0].block_end   = 2047;
         _partition[0].ops         = &ops;
 
-        rt_mtd_nand_register_device("nand0", &_partition[0]);
-
-        // _partition[1].page_size   = NAND_PAGE_SIZE;
-        // _partition[1].pages_per_block = 64;
-        // _partition[1].block_total = 2048 - _partition[0].block_total;
-        // _partition[1].oob_size    = 64;
-        // _partition[1].oob_free    = 60;
-        // _partition[1].block_start = _partition[0].block_end + 1;
-        // _partition[1].block_end   = 2047;
-        // _partition[1].ops         = &ops;
-
-        // rt_mtd_nand_register_device("nand1", &_partition[1]);
+        rt_mtd_nand_register_device("nandflash", &_partition[0]);
     }else{
         return 1;	//错误，返回
     }
@@ -363,11 +341,11 @@ rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuf
 		} 
 		i=nand_dev.page_mainsize+0X10+eccstart*4;			//从spare区的0X10位置开始读取之前存储的ecc值
 		NAND_Delay(NAND_TRHW_DELAY);//等待tRHW 
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0X05;				//随机读指令
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0x05;				//随机读指令
 		//发送地址
 		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
 		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0XE0;				//开始读数据
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0xE0;				//开始读数据
 		NAND_Delay(NAND_TWHR_DELAY);//等待tWHR 
 		pBuffer=(rt_uint8_t*)&nand_dev.ecc_rdbuf[eccstart];
 		for(i=0;i<4*eccnum;i++)								//读取保存的ECC值
@@ -474,7 +452,7 @@ rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBu
 		}  
 		i=nand_dev.page_mainsize+0x10+eccstart*4;			//计算写入ECC的spare区地址
 		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0X85;				//随机写指令
+		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0x85;				//随机写指令
 		//发送地址
 		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
 		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
@@ -693,7 +671,7 @@ rt_uint8_t NAND_WriteSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pB
 //    其他,擦除失败
 rt_uint8_t NAND_EraseBlock(rt_uint32_t BlockNum)
 {
-    if(nand_dev.id==W29N02GVSIAA)BlockNum<<=5;
+    if(nand_dev.id==W29N02GVSIAA)BlockNum<<=6;
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_ERASE0;
     //发送块地址
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)BlockNum;
@@ -730,7 +708,7 @@ rt_uint16_t NAND_ECC_Get_OE(rt_uint8_t oe,rt_uint32_t eccval)
 	{
 		if((i%2)==oe)
 		{
-			if((eccval>>i)&0X01)ecctemp+=1<<(i>>1); 
+			if((eccval>>i)&0x01)ecctemp+=1<<(i>>1); 
 		}
 	}
 	return ecctemp;
@@ -751,7 +729,7 @@ rt_uint8_t NAND_ECC_Correction(rt_uint8_t* data_buf,rt_uint32_t eccrd,rt_uint32_
 	eccclo=NAND_ECC_Get_OE(1,ecccl);	//获取ecccl的奇数位
 	ecccle=NAND_ECC_Get_OE(0,ecccl); 	//获取ecccl的偶数位
 	eccchk=eccrdo^eccrde^eccclo^ecccle;
-	if(eccchk==0XFFF)	//全1,说明只有1bit ECC错误
+	if(eccchk==0xFFF)	//全1,说明只有1bit ECC错误
 	{
 		errorpos=eccrdo^eccclo; 
 		NAND_DEBUG("errorpos:%d\r\n",errorpos); 

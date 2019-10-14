@@ -34,7 +34,7 @@ rt_uint8_t rt_hw_mtd_nand_init(void);
 
 
 #define NAND_MAX_PAGE_SIZE			2048		//定义NAND FLASH的最大的PAGE大小（不包括SPARE区），默认2048字节
-#define NAND_ECC_SECTOR_SIZE		256			//执行ECC计算的单元大小，默认512字节
+#define NAND_ECC_SECTOR_SIZE		512			//执行ECC计算的单元大小，默认512字节
 
 
 //NAND FLASH操作相关延时函数
