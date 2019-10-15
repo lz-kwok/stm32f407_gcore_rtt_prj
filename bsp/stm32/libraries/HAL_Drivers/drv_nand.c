@@ -484,7 +484,7 @@ rt_uint8_t NAND_WritePageConst(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
-		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+	NAND_Delay(NAND_TADL_DELAY);//等待tADL 
 	for(i=0;i<NumByteToWrite;i++)		//写入数据,每次写4字节
 	{
 		*(rt_uint32_t*)NAND_ADDRESS=cval;
