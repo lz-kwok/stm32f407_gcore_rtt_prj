@@ -138,7 +138,7 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
     NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_ENABLE;     //关闭等待特性
     NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;     //8位数据宽度
     NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;              //不使用ECC
-    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_256BYTE;      //ECC页大小为2k
+    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_2048BYTE;      //ECC页大小为2k
     NAND_Handler.Init.TCLRSetupTime=0;                                  //设置TCLR(tCLR=CLE到RE的延时)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
     NAND_Handler.Init.TARSetupTime=1;                                   //设置TAR(tAR=ALE到RE的延时)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5n。   
    
@@ -221,7 +221,6 @@ rt_uint32_t NAND_ReadID(void)
     deviceid[4]=*(rt_uint8_t*)NAND_ADDRESS;  
 
     id=((rt_uint32_t)deviceid[0])<<24|((rt_uint32_t)deviceid[1])<<16|((rt_uint32_t)deviceid[2])<<8|deviceid[3];
-    // NAND_DEBUG("NAND_ReadID = %08x",id);
 
     return id;
 }  
@@ -302,7 +301,7 @@ rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuf
 	rt_uint8_t eccstart=0;		//第一个ECC值所属的地址范围
 	rt_uint8_t errsta=0;
 	rt_uint8_t *p;
-     *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
     //发送地址
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
@@ -336,10 +335,10 @@ rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuf
 				*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
 			}		
 			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //等待FIFO空	
-			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//读取硬件计算后的ECC值
-			NAND_Handler.Instance->PCR2&=~(1<<6);						//禁止ECC校验
+			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;  //读取硬件计算后的ECC值
+			NAND_Handler.Instance->PCR2&=~(1<<6);						    //禁止ECC校验
 		} 
-		i=nand_dev.page_mainsize+0X10+eccstart*4;			//从spare区的0X10位置开始读取之前存储的ecc值
+		i=nand_dev.page_mainsize+0x10+eccstart*4;			    //从spare区的0X10位置开始读取之前存储的ecc值
 		NAND_Delay(NAND_TRHW_DELAY);//等待tRHW 
 		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0x05;				//随机读指令
 		//发送地址
@@ -430,10 +429,7 @@ rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBu
 	{  
 		for(i=0;i<NumByteToWrite;i++)		//写入数据
 		{
-            // NAND_DEBUG("%02x ",*(rt_uint8_t*)pBuffer); 
 			*(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)pBuffer++;
-            // if((i%8) == 0)
-            //     NAND_DEBUG("\r\n");
 		}
 	}else
 	{
@@ -853,3 +849,299 @@ FINSH_FUNCTION_EXPORT(nerase, nand erase a block of one partiton);
 FINSH_FUNCTION_EXPORT(nerase_all, erase all blocks of a partition);
 FINSH_FUNCTION_EXPORT(nwrite, nand write page);
 FINSH_FUNCTION_EXPORT(nread, nand read page);
+
+
+/****************************************************************************
+ *
+ * ll_read
+ *
+ * read a page 
+ *
+ * INPUTS
+ *
+ * pba - physical block address
+ * ppo - physical page offset
+ * buffer - page data pointer where to store data (data+spare)
+ *
+ * RETURNS
+ *
+ * LL_OK - if successfuly
+ * LL_ERASED - if page is empty
+ * LL_ERROR - if any error
+ *
+ ***************************************************************************/
+rt_uint8_t ll_read(t_ba pba,t_ba ppo, rt_uint8_t *buffer) {
+	rt_uint32_t PageNum=(rt_uint32_t)pba*NAND_PAGES_PER_BLOCK;
+    rt_uint16_t ColNum = ppo;
+	rt_base_t a,b,num;
+	rt_ubase_t *rp=(rt_ubase_t*)buffer;
+	rt_ubase_t ecc,eccori,ecchi,ecclo;
+    rt_uint8_t ecc_cache_data;
+    rt_uint32_t ecc_data = 0;
+    rt_uint8_t res=0;
+
+	ecc = 0;
+	num = 0x0000ffff; /* 24 bit ecc  */
+
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
+
+    res=NAND_WaitRB(0);			//等待RB=0 
+    if(res)return LL_ERROR;	    //超时退出
+    //下面2行代码是真正判断NAND是否准备好的
+	res=NAND_WaitRB(1);			//等待RB=1 
+    if(res)return LL_ERROR;	    //超时退出
+
+    for(a=0;a<NAND_MAX_PAGE_SIZE+NAND_MAS_SPARE_SIZE-4;a++){
+        ecc_cache_data = *(rt_uint8_t*)NAND_ADDRESS;
+        *(rt_uint8_t*)buffer++ = ecc_cache_data;
+        ecc_data = (rt_uint32_t)((ecc_data << 8)|ecc_cache_data);
+        if((a%4) == 3){
+            for (b=0; b<32; b++) {          /* calculate ECC */
+                if (ecc_data&1) ecc^=num;
+                num+=0x0000ffff;
+                ecc_data>>=1;
+            }
+            ecc_data = 0;
+        }
+    }
+    /* get ecc from 1st 32bit in spare area */
+    for (b=0; b<4; b++) {     
+        ecc_cache_data = *(rt_uint8_t*)NAND_ADDRESS;
+        eccori = (rt_uint32_t)((eccori << 8)|ecc_cache_data);
+    }
+
+    if(NAND_WaitForReady()!=NSTA_READY){
+        return LL_ERROR;	//失败
+    }
+
+	ecc ^= eccori;
+	if (!ecc) {
+      rt_kprintf("ReadPage: ok pba %d ppo %d\n",pba,ppo);
+      return LL_OK; /* no bit error */
+   }
+
+	ecchi=ecc>>16;
+	ecclo=ecc&0xffff;
+
+	if ((ecchi + ecclo) != 0xffffUL) {
+        for (a=0; a<NAND_MAX_PAGE_SIZE+NAND_MAS_SPARE_SIZE-4; a++) {
+            if (buffer[a]!=(rt_uint8_t)0xff) {
+                rt_kprintf("ReadPage: error 1 pba %d ppo %d\n",pba,ppo);
+                return LL_ERROR; /* ecc error */
+            }
+        }
+
+        if (eccori == 0xffffffffUL) {
+            rt_kprintf("ReadPage: erased pba %d ppo %d\n",pba,ppo);
+            return LL_ERASED; /* erased not written */
+        }
+
+        rt_kprintf("ReadPage: error 2 pba %d ppo %d\n",pba,ppo);
+        return LL_ERROR; /* ecc error */
+    }
+
+	buffer[ecchi >> 3] ^= (1<< (ecchi&7)); /* correcting error */
+
+    rt_kprintf("ReadPage: corrected pba %d ppo %d\n",pba,ppo);
+	
+    return LL_OK;
+}
+
+/****************************************************************************
+ *
+ * ll_write
+ *
+ * write a page 
+ *
+ * INPUTS
+ *
+ * pba - physical block address
+ * ppo - physical page offset
+ * buffer - page data to be written (data+spare)
+ *
+ * RETURNS
+ *
+ * LL_OK - if successfuly
+ * LL_ERROR - if any error
+ *
+ ***************************************************************************/
+
+rt_uint8_t ll_write(t_ba pba,t_ba ppo,rt_uint8_t *buffer) {
+	rt_uint32_t PageNum=(rt_uint32_t)pba*NAND_PAGES_PER_BLOCK;
+    rt_uint16_t ColNum = ppo;
+	long a,b;
+	rt_ubase_t ecc,num;
+    //unsigned char *s=(unsigned char*)data;
+    rt_uint8_t ecc_cache_data;
+    rt_uint32_t ecc_data = 0;
+
+	ecc=0;
+	num=0x0000ffff; /* 24 bit ecc  */
+
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+	NAND_Delay(NAND_TADL_DELAY);//等待tADL
+
+    for(a=0;a<NAND_MAX_PAGE_SIZE+NAND_MAS_SPARE_SIZE-4;a++){
+        ecc_cache_data = *(rt_uint8_t*)pBuffer++;
+        *(rt_uint8_t*)NAND_ADDRESS = ecc_cache_data;
+
+        ecc_data = (rt_uint32_t)((ecc_data << 8)|ecc_cache_data);
+        if((a%4) == 3){
+            for (b=0; b<32; b++) {          /* calculate ECC */
+                if (ecc_data&1) ecc^=num;
+                num+=0x0000ffff;
+                ecc_data>>=1;
+            }
+            ecc_data = 0;
+        }
+    }
+
+    *(rt_uint8_t*)NAND_ADDRESS = (ecc >> 24) & 0xff;
+    *(rt_uint8_t*)NAND_ADDRESS = (ecc >> 16) & 0xff;
+    *(rt_uint8_t*)NAND_ADDRESS = (ecc >> 8) & 0xff;
+    *(rt_uint8_t*)NAND_ADDRESS = ecc & 0xff;
+
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
+ 	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+	if(NAND_WaitForReady()!=NSTA_READY)return LL_ERROR;//失败
+    
+    return LL_OK;//成功   
+}
+
+/****************************************************************************
+ *
+ * ll_writedouble
+ *
+ * write a page from 2 buffers
+ *
+ * INPUTS
+ *
+ * pba - physical block address
+ * ppo - physical page offset
+ * buffer - 1st half of page data to be written
+ * buffer - 2nd half of page data + spare data to be written 
+ *
+ * RETURNS
+ *
+ * LL_OK - if successfuly
+ * LL_ERROR - if any error
+ *
+ ***************************************************************************/
+
+rt_uint8_t ll_writedouble(t_ba pba,t_ba ppo, rt_uint8_t *buffer0,rt_uint8_t *buffer1) {
+    rt_uint32_t PageNum=(rt_uint32_t)pba*NAND_PAGES_PER_BLOCK;
+    rt_uint16_t ColNum = ppo;
+    long a,b;
+    rt_ubase_t ecc,num;
+    rt_uint8_t ecc_cache_data;
+    rt_uint32_t ecc_data = 0;
+
+	ecc=0;
+	num=0x0000ffff; /* 24 bit ecc  */
+
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
+	NAND_Delay(NAND_TADL_DELAY);//等待tADL
+
+    for(a=0;a<NAND_MAX_PAGE_SIZE/2;a++){
+        ecc_cache_data = *(rt_uint8_t*)buffer0++;
+        *(rt_uint8_t*)NAND_ADDRESS = ecc_cache_data;
+
+        ecc_data = (rt_uint32_t)((ecc_data << 8)|ecc_cache_data);
+        if((a%4) == 3){
+            for (b=0; b<32; b++) {          /* calculate ECC */
+                if (ecc_data&1) ecc^=num;
+                num+=0x0000ffff;
+                ecc_data>>=1;
+            }
+            ecc_data = 0;
+        }
+    }
+
+    for(;a<NAND_MAX_PAGE_SIZE+NAND_MAS_SPARE_SIZE-4;a++){
+        ecc_cache_data = *(rt_uint8_t*)buffer1++;
+        *(rt_uint8_t*)NAND_ADDRESS = ecc_cache_data;
+
+        ecc_data = (rt_uint32_t)((ecc_data << 8)|ecc_cache_data);
+        if((a%4) == 3){
+            for (b=0; b<32; b++) {          /* calculate ECC */
+                if (ecc_data&1) ecc^=num;
+                num+=0x0000ffff;
+                ecc_data>>=1;
+            }
+            ecc_data = 0;
+        }
+    }
+
+	*(rt_uint8_t*)NAND_ADDRESS = (ecc >> 24) & 0xff;
+    *(rt_uint8_t*)NAND_ADDRESS = (ecc >> 16) & 0xff;
+    *(rt_uint8_t*)NAND_ADDRESS = (ecc >> 8) & 0xff;
+    *(rt_uint8_t*)NAND_ADDRESS = ecc & 0xff;
+
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
+ 	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+	if(NAND_WaitForReady()!=NSTA_READY)return LL_ERROR;//失败
+    
+    return LL_OK;//成功   
+}
+
+/****************************************************************************
+ *
+ * ll_erase
+ *
+ * erase a block
+ *
+ * INPUTS
+ *
+ * pba - physical block address
+ *
+ * RETURNS
+ *
+ * LL_OK - if successfuly
+ * LL_ERROR - if any error
+ *
+ ***************************************************************************/
+
+rt_uint8_t ll_erase(t_ba pba) {
+    rt_uint32_t BlockNum = pba;
+    
+    if(NAND_EraseBlock(pba) == 0)
+	    return LL_OK;
+    else
+        return LL_ERROR;
+}
+
+/****************************************************************************
+ *
+ * ll_init
+ *
+ * low level init function, this is called from mlayer lowinit function once
+ *
+ * RETURNS
+ *
+ * 0 - if successfuly
+ * other if any error
+ *
+ ***************************************************************************/
+
+rt_uint8_t ll_init() {
+	return 1; /*  unknown type  */
+}

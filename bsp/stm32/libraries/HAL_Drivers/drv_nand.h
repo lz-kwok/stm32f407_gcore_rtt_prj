@@ -9,13 +9,18 @@
 
 #include <rtdevice.h>
 
-/* nandflash confg */
-#define PAGES_PER_BLOCK         64
-#define PAGE_DATA_SIZE          2048
-#define PAGE_OOB_SIZE           64
-#define NAND_MARK_SPARE_OFFSET  4
+typedef unsigned short t_ba;    //typedef for block address
+typedef unsigned char  t_po;    //typedef for page offset
 
-#define NAND_PAGE_SIZE    (2048)
+enum {
+	LL_OK,
+	LL_ERASED,
+	LL_ERROR
+};
+/* nandflash confg */
+#define PAGE_DATA_SIZE          2048
+#define NAND_MARK_SPARE_OFFSET  4
+#define NAND_PAGE_SIZE          (2048)
 
 
 
@@ -35,7 +40,8 @@ rt_uint8_t rt_hw_mtd_nand_init(void);
 
 #define NAND_MAX_PAGE_SIZE			2048		//定义NAND FLASH的最大的PAGE大小（不包括SPARE区），默认2048字节
 #define NAND_ECC_SECTOR_SIZE		512			//执行ECC计算的单元大小，默认512字节
-
+#define NAND_PAGES_PER_BLOCK        64          //
+#define NAND_MAS_SPARE_SIZE         64
 
 //NAND FLASH操作相关延时函数
 #define NAND_TADL_DELAY				70			//tADL等待延迟,最少70ns
@@ -118,5 +124,11 @@ void NAND_EraseChip(void);
 
 rt_uint16_t NAND_ECC_Get_OE(rt_uint8_t oe,rt_uint32_t eccval);
 rt_uint8_t NAND_ECC_Correction(rt_uint8_t* data_buf,rt_uint32_t eccrd,rt_uint32_t ecccl);
+
+rt_uint8_t ll_read(t_ba pba,t_ba ppo, rt_uint8_t *buffer);
+rt_uint8_t ll_write(t_ba pba,t_ba ppo,rt_uint8_t *buffer);
+rt_uint8_t ll_writedouble(t_ba pba,t_ba ppo, rt_uint8_t *buffer0,rt_uint8_t *buffer1);
+rt_uint8_t ll_erase(t_ba pba);
+rt_uint8_t ll_init();
 
 #endif /* __K9F2G08U0B_H__ */
