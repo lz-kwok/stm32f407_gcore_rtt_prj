@@ -15,7 +15,7 @@
 #include <sys/time.h>
 
 #include <at_socket.h>
-#include <at_device.h>
+//#include <at_device.h>
 
 #ifdef SAL_USING_POSIX
 #include <dfs_poll.h>

@@ -14,7 +14,20 @@ menu "Onboard Peripheral Drivers"
         select RT_USING_LWIP
         select PHY_USING_LAN8720A
         default n
-	
+		
+	menuconfig BSP_USING_GPRS
+        bool "Enable GPRS"
+        default n
+        select RT_USING_GPRS
+        if BSP_USING_GPRS
+            config BSP_USING_AIR202
+                bool "Enable AIR202 For GPRS"
+                default n
+
+            config BSP_USING_SIM800C
+                bool "Enable SIM800C For GPRS"
+                default n
+        endif
 endmenu
 
 menu "On-chip Peripheral Drivers"
@@ -40,7 +53,16 @@ menu "On-chip Peripheral Drivers"
 			
 			config BSP_USING_UART2
                 bool "Enable UART2"
-                default y
+                default n
+			
+			config BSP_USING_UART3
+                bool "Enable UART3"
+                default n
+			
+			config BSP_UART3_RX_USING_DMA
+                bool "Enable UART3 RX DMA"
+                depends on BSP_USING_UART3 && RT_SERIAL_USING_DMA
+                default n
         endif
 
     menuconfig BSP_USING_SPI

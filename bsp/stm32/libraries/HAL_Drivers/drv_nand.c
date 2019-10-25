@@ -138,7 +138,7 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
     NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_ENABLE;     //关闭等待特性
     NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;     //8位数据宽度
     NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;              //不使用ECC
-    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_256BYTE;      //ECC页大小为2k
+    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_2048BYTE;      //ECC页大小为2k
     NAND_Handler.Init.TCLRSetupTime=0;                                  //设置TCLR(tCLR=CLE到RE的延时)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
     NAND_Handler.Init.TARSetupTime=1;                                   //设置TAR(tAR=ALE到RE的延时)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5n。   
    
@@ -181,7 +181,6 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
     }else{
         return 1;	//错误，返回
     }
-        
     return 0;
 }
 INIT_DEVICE_EXPORT(rt_hw_mtd_nand_init);
@@ -447,7 +446,7 @@ rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBu
 				*(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)pBuffer++;
 			}		
 			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //等待FIFO空	
-			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//读取硬件计算后的ECC值
+			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;  //读取硬件计算后的ECC值
 			NAND_Handler.Instance->PCR2&=~(1<<6);	
 		}  
 		i=nand_dev.page_mainsize+0x10+eccstart*4;			//计算写入ECC的spare区地址
@@ -488,7 +487,7 @@ rt_uint8_t NAND_WritePageConst(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
     *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
-		NAND_Delay(NAND_TADL_DELAY);//等待tADL 
+	NAND_Delay(NAND_TADL_DELAY);//等待tADL 
 	for(i=0;i<NumByteToWrite;i++)		//写入数据,每次写4字节
 	{
 		*(rt_uint32_t*)NAND_ADDRESS=cval;

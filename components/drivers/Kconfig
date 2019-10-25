@@ -109,6 +109,10 @@ config RT_USING_MTD_NOR
     bool "Using MTD Nor Flash device drivers"
     default n
 
+config RT_USING_FTL_LAYER
+    bool "Using FTL Layer For Nand Flash device"
+    default n
+
 config RT_USING_MTD_NAND
     bool "Using MTD Nand Flash device drivers"
     default n

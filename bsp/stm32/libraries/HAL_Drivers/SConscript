@@ -88,6 +88,12 @@ if GetDepend(['BSP_USING_USBD_FS_DEVICE']):
 if GetDepend(['RT_USING_MTD_NAND']):
 	src += ['drv_nand.c']
 
+if GetDepend(['RT_USING_FTL_LAYER']):
+	src += ['drv_ftl.c']
+
+if GetDepend(['BSP_USING_GPRS']):
+	src += ['drv_gprs.c']
+
 src += ['drv_common.c']
 
 path =  [cwd]

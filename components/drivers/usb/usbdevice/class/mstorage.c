@@ -758,7 +758,7 @@ static rt_bool_t _cbw_verify(ufunction_t func, struct scsi_cmd* cmd,
 
     if(cbw->xfer_len > data->cb_data_size)
     {
-        rt_kprintf("xfer_len > data_size\n");
+        rt_kprintf("xfer_len : %d > data_size : %d\n",cbw->xfer_len,data->cb_data_size);
         return RT_FALSE;
     }
     

@@ -88,6 +88,9 @@
 
 #define RT_USING_DEVICE_IPC
 #define RT_PIPE_BUFSZ 512
+#define RT_USING_SYSTEM_WORKQUEUE
+#define RT_SYSTEM_WORKQUEUE_STACKSIZE 2048
+#define RT_SYSTEM_WORKQUEUE_PRIORITY 23
 #define RT_USING_SERIAL
 #define RT_SERIAL_USING_DMA
 #define RT_SERIAL_RB_BUFSZ 64
@@ -97,7 +100,6 @@
 
 /* Using USB */
 
-#define RT_USING_USB_HOST
 #define RT_USING_USB_DEVICE
 #define RT_USBD_THREAD_STACK_SZ 4096
 #define USB_VENDOR_ID 0x0FFE
@@ -112,11 +114,19 @@
 
 /* POSIX layer and C standard library */
 
+#define RT_USING_LIBC
+#define RT_USING_POSIX
 
 /* Network */
 
 /* Socket abstraction layer */
 
+#define RT_USING_SAL
+
+/* protocol stack implement */
+
+#define SAL_USING_LWIP
+#define SAL_SOCKETS_NUM 16
 
 /* Network interface device */
 
@@ -172,6 +182,12 @@
 
 /* AT commands */
 
+#define RT_USING_AT
+#define AT_USING_CLIENT
+#define AT_CLIENT_NUM_MAX 1
+#define AT_USING_CLI
+#define AT_CMD_MAX_LEN 256
+#define AT_SW_VERSION_NUM 0x10300
 
 /* VBUS(Virtual Software BUS) */
 
@@ -233,13 +249,15 @@
 
 #define PHY_USING_LAN8720A
 #define BSP_USING_ETH
+#define BSP_USING_GPRS
+#define BSP_USING_AIR202
 
 /* On-chip Peripheral Drivers */
 
 #define BSP_USING_GPIO
 #define BSP_USING_UART
 #define BSP_USING_UART1
-#define BSP_USING_UART2
+#define BSP_USING_UART3
 #define BSP_USING_USBD_FS
 #define BSP_USING_USBD_FS_DEVICE
 #define BSP_USING_FMC

@@ -22,7 +22,7 @@
 /*@{*/
 const struct dfs_mount_tbl mount_table[] =
 {
-    {"nandflash", "/", "uffs", 0, 0},
+    {"nand", "/", "uffs", 0, 0},
     {0}
 };
 /**
