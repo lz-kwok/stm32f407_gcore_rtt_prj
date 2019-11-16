@@ -34,16 +34,31 @@ void phy_reset(void)
 
 int main(void)
 {
+    int recvLen = 0;
+    uint8_t dataRecv[32];
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
+
+    rt_device_t dev = RT_NULL;
+    char buf[] = "hello zhizhuo\r\n";
+
+    dev = rt_device_find("vcom");
+   
+    if (dev)
+        rt_device_open(dev, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
+    else
+        return 0;
    
     while (RT_TRUE)
     {   
-       
+        recvLen = rt_device_read(dev,0,dataRecv,32);
+        if(recvLen > 0){
+            rt_device_write(dev, 0, &dataRecv, recvLen);
+        }
 
-        // g_Gui_show_pic("5");
-        rt_thread_mdelay(2000);
-        // g_Gui_show_pic("F");
+        rt_device_write(dev, 0, buf, strlen(buf));
+        
+        rt_thread_mdelay(10);
     }
 
     return RT_EOK;

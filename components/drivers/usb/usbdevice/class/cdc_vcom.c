@@ -65,6 +65,8 @@ static struct ucdc_line_coding line_coding;
 #define CDC_TX_HAS_DATE   0x01
 #define CDC_TX_HAS_SPACE  0x02
 
+uint8_t vcomBuf[CDC_RX_BUFSIZE];
+
 struct vcom
 {
     struct rt_serial_device serial;
@@ -929,7 +931,7 @@ static void rt_usb_vcom_init(struct ufunction *func)
     config.bufsz        = CDC_RX_BUFSIZE;
 
     data->serial.ops        = &usb_vcom_ops;
-    data->serial.serial_rx  = RT_NULL;
+    data->serial.serial_rx  = data->rx_rbp;
     data->serial.config     = config;
 
     /* register vcom device */

@@ -38,7 +38,7 @@
 #define RT_USING_DEVICE
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 128
-#define RT_CONSOLE_DEVICE_NAME "uart1"
+#define RT_CONSOLE_DEVICE_NAME "uart0"
 #define RT_VER_NUM 0x40002
 #define ARCH_ARM
 #define RT_USING_CPU_FFS
@@ -73,16 +73,6 @@
 
 /* Device virtual file system */
 
-#define RT_USING_DFS
-#define DFS_USING_WORKDIR
-#define DFS_FILESYSTEMS_MAX 2
-#define DFS_FILESYSTEM_TYPES_MAX 2
-#define DFS_FD_MAX 4
-#define RT_USING_DFS_MNTTABLE
-#define RT_USING_DFS_DEVFS
-#define RT_USING_DFS_UFFS
-#define RT_UFFS_ECC_MODE_1
-#define RT_UFFS_ECC_MODE 1
 
 /* Device Drivers */
 
@@ -115,7 +105,6 @@
 /* POSIX layer and C standard library */
 
 #define RT_USING_LIBC
-#define RT_USING_POSIX
 
 /* Network */
 
@@ -247,10 +236,6 @@
 
 /* Onboard Peripheral Drivers */
 
-#define PHY_USING_LAN8720A
-#define BSP_USING_ETH
-#define BSP_USING_GPRS
-#define BSP_USING_AIR202
 
 /* On-chip Peripheral Drivers */
 
