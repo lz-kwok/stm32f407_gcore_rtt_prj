@@ -38,14 +38,13 @@ int main(void)
 {
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
-
+    g_usb_cdc_init();
     
-   
     while (RT_TRUE)
     {   
         
         
-        rt_thread_mdelay(10);
+        rt_thread_mdelay(50);
     }
 
     return RT_EOK;

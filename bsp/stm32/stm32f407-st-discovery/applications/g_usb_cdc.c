@@ -65,6 +65,9 @@ static void usb_cdc_entry(void *param)
                         g_usb_cdc_sendData(sendBuf, 10);
                     break;
                     case 0xFC:       //逆变器软启动
+                        sendBuf[1] = dataRecv[1];
+                        sendBuf[2] = dataRecv[2];
+                        g_usb_cdc_sendData(sendBuf, 10);
                     break
                 }
             }
