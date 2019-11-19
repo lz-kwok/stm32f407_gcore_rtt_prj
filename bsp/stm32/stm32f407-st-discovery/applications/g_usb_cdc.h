@@ -22,6 +22,10 @@ extern "C" {
 #define RT_USB_CDC_THREAD_STACK_SZ      2048
 #define RT_USB_CDC_THREAD_PRIO          7
 
+#define SetBit(data, offset)            data |= 1 << offset      
+#define ResetBit(data, offset)          data &= ~(1 << offset)   
+#define GetBit(data, offset)            ((data >> offset) &0x01) 
+
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len);
 
 rt_err_t g_usb_cdc_init(void);

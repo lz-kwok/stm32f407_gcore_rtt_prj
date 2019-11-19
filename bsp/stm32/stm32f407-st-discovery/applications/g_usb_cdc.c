@@ -13,10 +13,12 @@ static rt_uint8_t usb_cdc_thread_stack[RT_USB_CDC_THREAD_STACK_SZ];
 static struct rt_mutex usb_lock;
 static rt_device_t vcom_dev = RT_NULL;
 static rt_uint8_t recvLen = 0;
-uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
+rt_uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
+static rt_uint8_t pin_ctr_h,pin_ctr_l;
 
 static void usb_cdc_entry(void *param)
 {
+    static rt_uint8_t u_index = 0;
     rt_uint8_t dataRecv[32];
     vcom_dev = rt_device_find("vcom");
    
@@ -37,6 +39,29 @@ static void usb_cdc_entry(void *param)
                         sendBuf[2] = MajorVer;
                         sendBuf[3] = MiddleVer;
                         sendBuf[4] = MinnorVer;
+                        g_usb_cdc_sendData(sendBuf, 10);
+                    break;
+                    case 0xFD:       //接触器控制
+                        for(u_index=0;u_index<8;u_index++){
+                            if(GetBit(dataRecv[2],u_index) == 1){
+                                SetBit(pin_ctr_h,u_index);
+                                //pinset            
+                            }else{
+                                ResetBit(pin_ctr_h,u_index);
+                                //pinreset
+                            }
+
+                            if(GetBit(dataRecv[3],u_index) == 1){
+                                SetBit(pin_ctr_l,u_index);
+                                //pinset            
+                            }else{
+                                ResetBit(pin_ctr_l,u_index);
+                                //pinreset
+                            }
+                        }
+
+                        sendBuf[2] = pin_ctr_h;
+                        sendBuf[3] = pin_ctr_l;
                         g_usb_cdc_sendData(sendBuf, 10);
                     break;
                 }
