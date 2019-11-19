@@ -1,0 +1,70 @@
+ /*
+ * Change Logs:
+ * Date           Author       Notes
+ * 2019-9-11      guolz     first version
+ */
+
+#include <rtthread.h>
+#include <rtdevice.h>
+#include <board.h>
+#include <g_usb_cdc.h>
+
+static rt_uint8_t usb_cdc_thread_stack[RT_USB_CDC_THREAD_STACK_SZ];
+static rt_device_t vcom_dev = RT_NULL;
+static rt_uint8_t recvLen = 0;
+uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
+
+static void usb_cdc_entry(void *param)
+{
+    rt_uint8_t dataRecv[32];
+    vcom_dev = rt_device_find("vcom");
+   
+    if (vcom_dev)
+        rt_device_open(vcom_dev, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
+    else
+        return 0;
+
+    while (RT_TRUE)
+    {
+        recvLen = rt_device_read(vcom_dev,0,dataRecv,32);
+        if(recvLen > 0){
+            if((dataRecv[0] == 0x0D)&&(dataRecv[recvLen - 1] == 0x0D)){
+                switch(dataRecv[1])
+                {
+                    case 0xFE:       //查询版本
+                        sendBuf[1] = dataRecv[1];
+                        sendBuf[2] = MajorVer;
+                        sendBuf[3] = MiddleVer;
+                        sendBuf[4] = MinnorVer;
+                        g_usb_cdc_sendData(sendBuf, 10);
+                    break;
+                }
+            }
+        }
+        
+
+        rt_thread_mdelay(20);
+    }
+    
+}
+
+
+rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len)
+{
+    rt_device_write(vcom_dev, 0, data, len);
+}
+
+
+rt_err_t g_usb_cdc_init(void)
+{
+    static struct rt_thread usb_cdc_thread;
+    
+    rt_thread_init(&usb_cdc_thread,
+                   "usb_cdc",
+                   usb_cdc_entry, RT_NULL,
+                   usb_cdc_thread_stack, RT_USB_CDC_THREAD_STACK_SZ,
+                   RT_USB_CDC_THREAD_PRIO, 20);
+
+    return rt_thread_startup(&usb_cdc_thread);
+}
+

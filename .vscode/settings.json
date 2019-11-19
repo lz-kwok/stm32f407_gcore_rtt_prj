@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "rtdevice.h": "c"
+        "rtdevice.h": "c",
+        "g_usb_cdc.h": "c",
+        "board.h": "c",
+        "rtthread.h": "c"
     }
 }
