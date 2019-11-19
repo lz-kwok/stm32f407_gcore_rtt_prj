@@ -10,6 +10,7 @@
 #include <g_usb_cdc.h>
 
 static rt_uint8_t usb_cdc_thread_stack[RT_USB_CDC_THREAD_STACK_SZ];
+static struct rt_mutex usb_lock;
 static rt_device_t vcom_dev = RT_NULL;
 static rt_uint8_t recvLen = 0;
 uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
@@ -51,14 +52,17 @@ static void usb_cdc_entry(void *param)
 
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len)
 {
+    rt_mutex_take(&usb_lock, RT_WAITING_FOREVER);
     rt_device_write(vcom_dev, 0, data, len);
+    rt_mutex_release(&usb_lock);
 }
 
 
 rt_err_t g_usb_cdc_init(void)
 {
     static struct rt_thread usb_cdc_thread;
-    
+    rt_mutex_init(&usb_lock, "usb_lock", RT_IPC_FLAG_FIFO);
+
     rt_thread_init(&usb_cdc_thread,
                    "usb_cdc",
                    usb_cdc_entry, RT_NULL,
