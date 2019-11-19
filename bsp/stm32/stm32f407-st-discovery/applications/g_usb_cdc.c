@@ -64,6 +64,8 @@ static void usb_cdc_entry(void *param)
                         sendBuf[3] = pin_ctr_l;
                         g_usb_cdc_sendData(sendBuf, 10);
                     break;
+                    case 0xFC:       //逆变器软启动
+                    break
                 }
             }
         }
@@ -96,4 +98,28 @@ rt_err_t g_usb_cdc_init(void)
 
     return rt_thread_startup(&usb_cdc_thread);
 }
+
+
+
+void g_usb_pin_status_init(void)
+{
+    rt_pin_mode(MCU_KOUT1,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT2,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT3,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT4,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT5,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT6,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT7,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT8,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT9,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT10,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT11,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT12,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT13,PIN_MODE_OUTPUT);
+
+    rt_pin_mode(FAULT1,PIN_MODE_INPUT);
+    rt_pin_mode(FAULT2,PIN_MODE_INPUT);
+    rt_pin_mode(FAULT3,PIN_MODE_INPUT);
+}
+INIT_DEVICE_EXPORT(g_usb_pin_status_init);
 
