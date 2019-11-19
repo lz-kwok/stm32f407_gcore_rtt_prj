@@ -16,6 +16,8 @@
 #include <at.h>
 #include <string.h>
 
+#include <g_usb_cdc.h>
+
 #define gprs_power          GET_PIN(G, 0)
 #define gprs_rst            GET_PIN(G, 1)
 #define usbd                GET_PIN(C, 9)

@@ -25,7 +25,7 @@ static void usb_cdc_entry(void *param)
     if (vcom_dev)
         rt_device_open(vcom_dev, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
     else
-        return 0;
+        return;
 
     while (RT_TRUE)
     {
@@ -68,7 +68,7 @@ static void usb_cdc_entry(void *param)
                         sendBuf[1] = dataRecv[1];
                         sendBuf[2] = dataRecv[2];
                         g_usb_cdc_sendData(sendBuf, 10);
-                    break
+                    break;
                 }
             }
         }
@@ -83,8 +83,10 @@ static void usb_cdc_entry(void *param)
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len)
 {
     rt_mutex_take(&usb_lock, RT_WAITING_FOREVER);
-    rt_device_write(vcom_dev, 0, data, len);
+    int ret = rt_device_write(vcom_dev, 0, data, len);
     rt_mutex_release(&usb_lock);
+
+    return ret;
 }
 
 
