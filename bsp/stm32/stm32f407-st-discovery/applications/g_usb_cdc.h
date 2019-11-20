@@ -40,6 +40,7 @@ extern "C" {
 #define MCU_KOUT12                      GET_PIN(F, 13)
 #define MCU_KOUT13                      GET_PIN(F, 15)
 
+
 #define FAULT1                          GET_PIN(B, 0)
 #define FAULT2                          GET_PIN(B, 1)
 #define FAULT3                          GET_PIN(F, 12)
@@ -47,8 +48,11 @@ extern "C" {
 
 
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len);
-
 rt_err_t g_usb_cdc_init(void);
+void g_usb_pinH_control(rt_uint8_t bits);
+void g_usb_pinL_control(rt_uint8_t bits);
+void g_usb_control_softstart(rt_bool_t start);
+
 
 #ifdef __cplusplus
 }

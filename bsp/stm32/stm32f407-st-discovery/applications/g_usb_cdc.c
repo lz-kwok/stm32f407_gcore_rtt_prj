@@ -45,19 +45,17 @@ static void usb_cdc_entry(void *param)
                         for(u_index=0;u_index<8;u_index++){
                             if(GetBit(dataRecv[2],u_index) == 1){
                                 SetBit(pin_ctr_h,u_index);
-                                //pinset            
                             }else{
                                 ResetBit(pin_ctr_h,u_index);
-                                //pinreset
                             }
 
                             if(GetBit(dataRecv[3],u_index) == 1){
                                 SetBit(pin_ctr_l,u_index);
-                                //pinset            
                             }else{
                                 ResetBit(pin_ctr_l,u_index);
-                                //pinreset
                             }
+                            g_usb_pinH_control(pin_ctr_h);
+                            g_usb_pinL_control(pin_ctr_l);
                         }
 
                         sendBuf[2] = pin_ctr_h;
@@ -68,6 +66,11 @@ static void usb_cdc_entry(void *param)
                         sendBuf[1] = dataRecv[1];
                         sendBuf[2] = dataRecv[2];
                         g_usb_cdc_sendData(sendBuf, 10);
+                        if(dataRecv[2]){
+                            g_usb_control_softstart(RT_TRUE);
+                        }else{
+                            g_usb_control_softstart(RT_FALSE);
+                        }
                     break;
                 }
             }
@@ -128,3 +131,89 @@ void g_usb_pin_status_init(void)
 }
 INIT_DEVICE_EXPORT(g_usb_pin_status_init);
 
+void g_usb_pinH_control(rt_uint8_t bits)
+{
+    if(GetBit(bits,0) == 1){
+        rt_pin_write(MCU_KOUT3, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT3, PIN_LOW);
+    }
+
+    if(GetBit(bits,1) == 1){
+        rt_pin_write(MCU_KOUT4, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT4, PIN_LOW);
+    }
+
+    if(GetBit(bits,2) == 1){
+        rt_pin_write(MCU_KOUT5, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT5, PIN_LOW);
+    }
+
+    if(GetBit(bits,3) == 1){
+        rt_pin_write(MCU_KOUT6, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT6, PIN_LOW);
+    }
+
+    if(GetBit(bits,4) == 1){
+        rt_pin_write(MCU_KOUT7, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT7, PIN_LOW);
+    }
+
+    if(GetBit(bits,5) == 1){
+        rt_pin_write(MCU_KOUT8, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT8, PIN_LOW);
+    }
+
+    if(GetBit(bits,6) == 1){
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+    }
+
+    if(GetBit(bits,7) == 1){
+        rt_pin_write(MCU_KOUT10, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT10, PIN_LOW);
+    }
+}
+
+void g_usb_pinL_control(rt_uint8_t bits)
+{
+    if(GetBit(bits,0) == 1){
+        rt_pin_write(MCU_KOUT11, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT11, PIN_LOW);
+    }
+
+    if(GetBit(bits,1) == 1){
+        rt_pin_write(MCU_KOUT12, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT12, PIN_LOW);
+    }
+
+    if(GetBit(bits,2) == 1){
+        rt_pin_write(MCU_KOUT13, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT13, PIN_LOW);
+    }
+
+    // if(GetBit(bits,3) == 1){
+    //     rt_pin_write(MCU_KOUT14, PIN_HIGH);
+    // }else{
+    //     rt_pin_write(MCU_KOUT14, PIN_LOW);
+    // }
+}
+
+void g_usb_control_softstart(rt_bool_t start)
+{
+    if(start){
+        rt_pin_write(MCU_KOUT2, PIN_HIGH);
+    }else{
+        rt_pin_write(MCU_KOUT2, PIN_LOW);
+    }
+}
