@@ -30,8 +30,8 @@ extern "C" {
 #define MCU_KOUT2                       GET_PIN(G, 6)
 #define MCU_KOUT3                       GET_PIN(G, 5)
 #define MCU_KOUT4                       GET_PIN(G, 4)
-#define MCU_KOUT5                       GET_PIN(G, 3)
-#define MCU_KOUT6                       GET_PIN(D, 13)
+#define MCU_KOUT5                       GET_PIN(E, 0)
+#define MCU_KOUT6                       GET_PIN(G, 10)
 #define MCU_KOUT7                       GET_PIN(G, 2)
 #define MCU_KOUT8                       GET_PIN(D, 10)
 #define MCU_KOUT9                       GET_PIN(E, 12)
@@ -45,12 +45,15 @@ extern "C" {
 #define FAULT2                          GET_PIN(B, 1)
 #define FAULT3                          GET_PIN(F, 12)
 
+typedef enum  {
+  Load_1_5kW_ON         = 1,
+  Load_1_5kW_OFF,
 
+} relaycmd;
 
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len);
 rt_err_t g_usb_cdc_init(void);
-void g_usb_pinH_control(rt_uint8_t bits);
-void g_usb_pinL_control(rt_uint8_t bits);
+void g_usb_pin_control(relaycmd cmd);
 void g_usb_control_softstart(rt_bool_t start);
 
 
