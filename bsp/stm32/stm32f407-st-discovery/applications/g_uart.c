@@ -43,6 +43,7 @@ rt_uint8_t uart_getchar(void)
 
     return ch;
 }
+
 void uart_putchar(const rt_uint8_t c)
 {
     rt_size_t len = 0;
@@ -55,13 +56,7 @@ void uart_putchar(const rt_uint8_t c)
     while (len != 1 && timeout < 500);
 }
 
-void uart_putstring(const rt_uint8_t *s)
-{
-    while(*s)
-    {
-        uart_putchar(*s++);
-    }
-}
+
 
 rt_err_t uart_open(const char *name)
 {
@@ -104,9 +99,19 @@ rt_err_t uart_open(const char *name)
 }
 
 
+void g_uart_sendto_Dpsp(const rt_uint8_t *cmd)
+{
+    while(*cmd)
+    {
+        uart_putchar(*cmd++);
+    }
+}
+
+
 void uart_thread_entry(void* parameter)
 {    
-    rt_uint8_t uart_rx_data;
+    rt_uint8_t uart_recv[64] = {0};
+    rt_uint8_t uart_recv_num = 0;
     
     /* 打开串口 */
     if (uart_open("uart2") != RT_EOK)
@@ -122,7 +127,7 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        uart_rx_data = uart_getchar();
+        uart_recv[uart_recv_num++] = uart_getchar();
 
 
     }            

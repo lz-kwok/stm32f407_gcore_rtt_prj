@@ -12,6 +12,7 @@
 #include <rthw.h>
 #include <rtthread.h>
 
+void g_uart_sendto_Dpsp(const rt_uint8_t *cmd);
 
 rt_err_t g_uart_init(void);
 
