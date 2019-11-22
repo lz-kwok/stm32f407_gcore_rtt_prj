@@ -118,11 +118,47 @@ INIT_DEVICE_EXPORT(g_usb_pin_status_init);
 void g_usb_pin_control(relaycmd cmd)
 {
     if(cmd == Load_1_5kW_ON){
+        rt_pin_write(MCU_KOUT6, PIN_HIGH);
+        rt_pin_write(MCU_KOUT7, PIN_HIGH);
+    }else if(cmd == Load_1_5kW_OFF){
+        rt_pin_write(MCU_KOUT6, PIN_LOW);
+        rt_pin_write(MCU_KOUT7, PIN_LOW);
+    }else if(cmd == Load_3kW_ON){
+        rt_pin_write(MCU_KOUT7, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+    }else if(cmd == Load_3kW_OFF){
+        rt_pin_write(MCU_KOUT7, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+    }else if(cmd == Load_Reverse_ON){
+        rt_pin_write(MCU_KOUT2, PIN_HIGH);
+    }else if(cmd == Load_Reverse_OFF){
+        rt_pin_write(MCU_KOUT2, PIN_LOW);
+    }else if(cmd == Load_Over_ON){
+        rt_pin_write(MCU_KOUT4, PIN_HIGH);
         rt_pin_write(MCU_KOUT5, PIN_HIGH);
         rt_pin_write(MCU_KOUT6, PIN_HIGH);
-    }else if(cmd == Load_1_5kW_OFF){
+        rt_pin_write(MCU_KOUT7, PIN_HIGH);
+        rt_pin_write(MCU_KOUT8, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+    }else if(cmd == Load_Over_OFF){
+        rt_pin_write(MCU_KOUT4, PIN_LOW);
         rt_pin_write(MCU_KOUT5, PIN_LOW);
         rt_pin_write(MCU_KOUT6, PIN_LOW);
+        rt_pin_write(MCU_KOUT7, PIN_LOW);
+        rt_pin_write(MCU_KOUT8, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+    }else if(cmd == Load_Short_Circuit_ON){
+        rt_pin_write(MCU_KOUT10, PIN_HIGH);
+    }else if(cmd == Load_Short_Circuit_OFF){
+        rt_pin_write(MCU_KOUT10, PIN_LOW);
+    }else if(cmd == Load_Precharge_ON){
+        rt_pin_write(MCU_KOUT3, PIN_HIGH);
+    }else if(cmd == Load_Precharge_OFF){
+        rt_pin_write(MCU_KOUT3, PIN_LOW);
+    }else if(cmd == Load_Main_ON){
+        rt_pin_write(MCU_KOUT1, PIN_HIGH);
+    }else if(cmd == Load_Main_OFF){
+        rt_pin_write(MCU_KOUT1, PIN_LOW);
     }
     
 }
