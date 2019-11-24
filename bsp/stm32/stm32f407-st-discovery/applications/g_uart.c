@@ -10,6 +10,7 @@
 #include "board.h"
 
 #include "g_uart.h"
+#include "g_usb_cdc.h"
 
 
 /* 串口接收事件标志 */
@@ -19,6 +20,17 @@
 static struct rt_event event;
 /* 串口设备句柄 */
 static rt_device_t uart_device = RT_NULL;
+
+static struct serial_configure dpsp_useconfig = {
+    BAUD_RATE_115200,
+    DATA_BITS_8,
+    STOP_BITS_1,
+    PARITY_ODD,
+    BIT_ORDER_MSB,
+    NRZ_NORMAL,
+    128,
+    0
+};
     
 /* 回调函数 */
 static rt_err_t uart_intput(rt_device_t dev, rt_size_t size)
@@ -85,6 +97,12 @@ rt_err_t uart_open(const char *name)
             return -RT_ERROR;
         }
 
+        res = rt_device_control(uart_device,RT_DEVICE_CTRL_CONFIG,(void *)&dpsp_useconfig);
+        if (res != RT_EOK)
+        {
+            rt_kprintf("control %s device error.%d\n",name,res);
+            return -RT_ERROR;
+        }
     }
     else
     {
@@ -114,7 +132,7 @@ void uart_thread_entry(void* parameter)
     rt_uint8_t uart_recv_num = 0;
     
     /* 打开串口 */
-    if (uart_open("uart2") != RT_EOK)
+    if (uart_open("uart1") != RT_EOK)
     {
         rt_kprintf("uart open error.\n");
          while (1)
@@ -127,8 +145,10 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        uart_recv[uart_recv_num++] = uart_getchar();
-
+        uart_recv[0] = uart_getchar();
+        
+        g_usb_cdc_sendData(&uart_recv[0],1);
+        rt_thread_delay(100);
 
     }            
 }
@@ -144,7 +164,7 @@ rt_err_t g_uart_init(void)
                     10);
     /* 创建成功则启动线程 */
     if (g_tid != RT_NULL){
-        rt_thread_startup(tid);
+        rt_thread_startup(g_tid);
         return RT_EOK;
     }
 

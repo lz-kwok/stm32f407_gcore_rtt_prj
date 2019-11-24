@@ -37,7 +37,7 @@ extern "C" {
 #define MCU_KOUT9                       GET_PIN(G, 7)
 #define MCU_KOUT10                      GET_PIN(G, 6)
 #define MCU_KOUT11                      GET_PIN(G, 5)
-#define MCU_KOUT12                      GET_PIN(G, 12)
+#define MCU_KOUT12                      GET_PIN(G, 4)
 #define MCU_KOUT13                      GET_PIN(G, 3)
 #define MCU_KOUT14                      GET_PIN(D, 13)
 #define MCU_KOUT15                      GET_PIN(G, 2)
