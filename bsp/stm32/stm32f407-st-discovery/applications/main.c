@@ -39,7 +39,6 @@ void phy_reset(void)
 
 int main(void)
 {
-    static int outp = 1;
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
     g_usb_cdc_init();
@@ -48,14 +47,6 @@ int main(void)
     
     while (RT_TRUE)
     {   
-        if(outp == 1){
-            outp = 0;
-            g_uart_sendto_Dpsp("VOLT 5.0");
-            rt_thread_mdelay(2000);
-            g_uart_sendto_Dpsp("OUTP ON");
-            rt_thread_mdelay(2000);
-            g_uart_sendto_Dpsp("VOLT 115.0");
-        }
         
         rt_thread_mdelay(5000);
     }

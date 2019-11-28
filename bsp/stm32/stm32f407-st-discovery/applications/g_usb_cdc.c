@@ -62,6 +62,16 @@ static void usb_cdc_entry(void *param)
                             g_usb_control_softstart(RT_FALSE);
                         }
                     break;
+                    case 0xFB:       //开启直流电源
+                        if(dataRecv[2] == DC_Power_ON){
+                            g_uart_sendto_Dpsp("OUTP ON");
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp("VOLT 110.0");
+                        }else if(dataRecv[2] == DC_Power_OFF){
+                            g_uart_sendto_Dpsp("OUTP OFF");
+                        }                  
+                        g_usb_cdc_sendData(dataRecv,recvLen);      
+                    break;
                 }
             }
         }

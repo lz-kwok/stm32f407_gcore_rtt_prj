@@ -117,11 +117,11 @@ rt_device_t uart_open(const char *name)
 }
 
 
-void g_uart_sendto_Dpsp(rt_device_t dev,const rt_uint8_t *cmd)
+void g_uart_sendto_Dpsp(const rt_uint8_t *cmd)
 {
     while(*cmd)
     {
-        uart_putchar(dev,*cmd++);
+        uart_putchar(g_uart1,*cmd++);
     }
 }
 

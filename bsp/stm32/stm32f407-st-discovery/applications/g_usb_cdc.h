@@ -64,7 +64,10 @@ typedef enum  {
   Load_Precharge_ON,
   Load_Precharge_OFF,
   Load_Main_ON,
-  Load_Main_OFF
+  Load_Main_OFF,
+
+  DC_Power_ON,
+  DC_Power_OFF
 
 } relaycmd;
 
