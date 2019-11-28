@@ -11,10 +11,11 @@
 
 static rt_uint8_t usb_cdc_thread_stack[RT_USB_CDC_THREAD_STACK_SZ];
 static struct rt_mutex usb_lock;
+static rt_timer_t u_timer;
 static rt_device_t vcom_dev = RT_NULL;
 static rt_uint8_t recvLen = 0;
 rt_uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
-static rt_uint8_t pin_ctr_h,pin_ctr_l;
+static rt_uint8_t reSend;
 
 static void usb_cdc_entry(void *param)
 {
@@ -43,6 +44,12 @@ static void usb_cdc_entry(void *param)
                     break;
                     case 0xFD:       //接触器控制
                         g_usb_pin_control(dataRecv[2]);
+                        if(dataRecv[2] == Load_Main_ON){
+                            dataRecv[2] = Load_Precharge_ON;
+                            sendBuf[1] = dataRecv[1];
+                            sendBuf[2] = dataRecv[2];
+                            reSend = 1;
+                        }
                         g_usb_cdc_sendData(dataRecv,recvLen);
                     break;
                     case 0xFC:       //逆变器软启动
@@ -75,11 +82,28 @@ rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len)
     return ret;
 }
 
+static void g_usb_timerout_callback(void *parameter)
+{
+     rt_pin_write(MCU_KOUT3, PIN_HIGH);        //打开主接触器
+     if(reSend == 1){
+         reSend = 0;
+         sendBuf[2] = Load_Main_ON;
+         g_usb_cdc_sendData(sendBuf, 10);
+     }
+
+}
+
 
 rt_err_t g_usb_cdc_init(void)
 {
     static struct rt_thread usb_cdc_thread;
     rt_mutex_init(&usb_lock, "usb_lock", RT_IPC_FLAG_FIFO);
+
+    u_timer = rt_timer_create("u_timer", 
+                             g_usb_timerout_callback, 
+                             RT_NULL, 
+                             3000, 
+                             RT_TIMER_FLAG_ONE_SHOT|RT_TIMER_FLAG_SOFT_TIMER); 
 
     rt_thread_init(&usb_cdc_thread,
                    "usb_cdc",
@@ -156,9 +180,13 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == Load_Precharge_OFF){
         rt_pin_write(MCU_KOUT5, PIN_LOW);
     }else if(cmd == Load_Main_ON){
-        rt_pin_write(MCU_KOUT3, PIN_HIGH);
+        rt_pin_write(MCU_KOUT5, PIN_HIGH);
+        if(u_timer != RT_NULL){
+            rt_timer_start(u_timer);
+        }
     }else if(cmd == Load_Main_OFF){
         rt_pin_write(MCU_KOUT3, PIN_LOW);
+        rt_pin_write(MCU_KOUT5, PIN_LOW);
     }
     
 }
