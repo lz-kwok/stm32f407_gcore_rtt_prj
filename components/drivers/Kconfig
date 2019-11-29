@@ -99,7 +99,21 @@ config RT_USING_PIN
 
 config RT_USING_ADC
     bool "Using ADC device drivers"
-    default n
+	default n
+	if RT_USING_ADC
+		config BSP_USING_ADC1
+			bool "Enable ADC1"
+			default n
+			
+		config BSP_USING_ADC2
+			bool "Enable ADC2"
+			default n
+			
+		config BSP_USING_ADC3
+			bool "Enable ADC3"
+			default n
+	endif
+    
 
 config RT_USING_PWM
     bool "Using PWM device drivers"

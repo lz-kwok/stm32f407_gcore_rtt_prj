@@ -89,6 +89,7 @@
 #define RT_SERIAL_RB_BUFSZ 64
 #define RT_USING_PIN
 #define RT_USING_ADC
+#define BSP_USING_ADC3
 #define RT_USING_MTD_NAND
 #define RT_MTD_NAND_DEBUG
 

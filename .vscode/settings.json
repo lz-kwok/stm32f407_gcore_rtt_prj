@@ -3,6 +3,8 @@
         "rtdevice.h": "c",
         "g_usb_cdc.h": "c",
         "board.h": "c",
-        "rtthread.h": "c"
+        "rtthread.h": "c",
+        "gui.h": "c",
+        "g_measure.h": "c"
     }
 }
