@@ -504,6 +504,13 @@
               <FilePath>applications\g_usb_cdc.c</FilePath>
             </File>
           </Files>
+          <Files>
+            <File>
+              <FileName>g_measure.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>applications\g_measure.c</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>Drivers</GroupName>

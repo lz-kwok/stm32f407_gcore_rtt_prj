@@ -12,12 +12,11 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <board.h>
-#include <gui.h>
-#include <at.h>
 #include <string.h>
 
 #include <g_usb_cdc.h>
 #include <g_uart.h>
+#include <g_measure.h>
 
 #define gprs_power          GET_PIN(G, 0)
 #define gprs_rst            GET_PIN(G, 1)
@@ -41,6 +40,7 @@ int main(void)
 {
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
+    g_measure_manager_init();
     g_usb_cdc_init();
     g_uart_init();
     rt_thread_mdelay(1000);

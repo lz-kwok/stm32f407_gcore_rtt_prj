@@ -19,6 +19,10 @@ extern "C" {
 #define MANAGER_MQ_MSG_SZ               16
 #define MANAGER_MQ_MAX_MSG              8
 
+
+void g_MeasureQueue_send(rt_uint8_t type, const char *content);
+rt_err_t g_measure_manager_init(void);
+
 #ifdef __cplusplus
 }
 #endif

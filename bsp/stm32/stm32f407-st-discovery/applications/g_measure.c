@@ -24,7 +24,7 @@ static void g_measure_manager_entry(void *param)
                     RT_WAITING_FOREVER) != RT_EOK )
             continue;
 
-        char *pic_show = (char *)msg.content;
+        // char *pic_show = (char *)msg.content;
         
 
         
@@ -34,21 +34,22 @@ static void g_measure_manager_entry(void *param)
     
 }
 
-void g_Gui_show_pic(const char *pic)
+void g_MeasureQueue_send(rt_uint8_t type, const char *content)
 {   
-    struct hal_message gui_msg;
-    gui_msg.what = 0x01;
-    gui_msg.content = (void *)pic;
-    gui_msg.freecb = NULL;
+    struct hal_message g_msg;
+    g_msg.what = type;
+    g_msg.content = (void *)content;
+    g_msg.freecb = NULL;
 
-    rt_mq_send(&gui_mq, (void*)&gui_msg, sizeof(struct hal_message));
+    rt_mq_send(&g_measure_mq, (void*)&g_msg, sizeof(struct hal_message));
 }
 
 
-rt_err_t g_Measuer_manager_init(void)
+rt_err_t g_measure_manager_init(void)
 {
     static struct rt_thread measure_thread;
-    
+    rt_err_t ret;
+        
     rt_mq_init(&g_measure_mq,
             "g_measure_mq",
             measure_mq_pool, MANAGER_MQ_MSG_SZ,
@@ -61,7 +62,9 @@ rt_err_t g_Measuer_manager_init(void)
                    measure_thread_stack, RT_MANAGER_THREAD_STACK_SZ,
                    RT_MANAGER_THREAD_PRIO, 30);
 
-    return rt_thread_startup(&measure_thread);
+    ret = rt_thread_startup(&measure_thread);
+
+    return ret;
 }
-INIT_COMPONENT_EXPORT(g_Measuer_manager_init);	
+// INIT_COMPONENT_EXPORT(g_Measuer_manager_init);	
 

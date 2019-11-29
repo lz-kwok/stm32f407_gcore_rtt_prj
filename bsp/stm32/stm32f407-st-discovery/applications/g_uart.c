@@ -147,7 +147,7 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        uart_recv[0] = uart_getchar();
+        uart_recv[0] = uart_getchar(g_uart1);
         
         g_usb_cdc_sendData(&uart_recv[0],1);
         rt_thread_delay(100);

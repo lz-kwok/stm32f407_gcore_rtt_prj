@@ -8,6 +8,7 @@
 #include <rtdevice.h>
 #include <board.h>
 #include <g_usb_cdc.h>
+#include <g_uart.h>
 
 static rt_uint8_t usb_cdc_thread_stack[RT_USB_CDC_THREAD_STACK_SZ];
 static struct rt_mutex usb_lock;
@@ -43,7 +44,7 @@ static void usb_cdc_entry(void *param)
                         g_usb_cdc_sendData(sendBuf, 10);
                     break;
                     case 0xFD:       //接触器控制
-                        g_usb_pin_control(dataRecv[2]);
+                        g_usb_pin_control((relaycmd)dataRecv[2]);
                         if(dataRecv[2] == Load_Main_ON){
                             dataRecv[2] = Load_Precharge_ON;
                             sendBuf[1] = dataRecv[1];
@@ -107,6 +108,8 @@ static void g_usb_timerout_callback(void *parameter)
 rt_err_t g_usb_cdc_init(void)
 {
     static struct rt_thread usb_cdc_thread;
+    rt_err_t ret;
+
     rt_mutex_init(&usb_lock, "usb_lock", RT_IPC_FLAG_FIFO);
 
     u_timer = rt_timer_create("u_timer", 
@@ -121,7 +124,9 @@ rt_err_t g_usb_cdc_init(void)
                    usb_cdc_thread_stack, RT_USB_CDC_THREAD_STACK_SZ,
                    RT_USB_CDC_THREAD_PRIO, 20);
 
-    return rt_thread_startup(&usb_cdc_thread);
+    ret = rt_thread_startup(&usb_cdc_thread);
+
+    return ret;
 }
 
 
