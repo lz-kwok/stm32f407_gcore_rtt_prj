@@ -217,19 +217,19 @@ static int stm32_adc_init(void)
         /* ADC init */
         name_buf[3] = '0';
         stm32_adc_obj[i].ADC_Handler = adc_config[i];
-#if defined(ADC1)
+#if defined(BSP_USING_ADC1)
         if (stm32_adc_obj[i].ADC_Handler.Instance == ADC1)
         {
             name_buf[3] = '1';
         }
 #endif
-#if defined(ADC2)
+#if defined(BSP_USING_ADC2)
         if (stm32_adc_obj[i].ADC_Handler.Instance == ADC2)
         {
             name_buf[3] = '2';
         }
 #endif
-#if defined(ADC3)
+#if defined(BSP_USING_ADC3)
         if (stm32_adc_obj[i].ADC_Handler.Instance == ADC3)
         {
             name_buf[3] = '3';
