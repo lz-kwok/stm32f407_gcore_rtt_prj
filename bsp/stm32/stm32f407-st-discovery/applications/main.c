@@ -18,15 +18,66 @@
 #include <g_uart.h>
 #include <g_measure.h>
 
+typedef enum  {
+  channel5         = 1,
+  channel6,
+  channel7,
+  channel8
+} adc_channel;
+
 #define gprs_power          GET_PIN(G, 0)
 #define gprs_rst            GET_PIN(G, 1)
 #define usbd                GET_PIN(C, 9)
 
 #define ADC_DEV_NAME        "adc3"  
-
+#define FILTER_N            20
 
 rt_adc_device_t adc_dev; 
 rt_uint32_t adc_val[10];
+rt_uint32_t filter1_buf[FILTER_N + 1];
+rt_uint32_t filter2_buf[FILTER_N + 1];
+
+
+rt_uint32_t Filter(adc_channel channel) 
+{
+    int i;
+    rt_uint32_t filter_sum = 0;
+    rt_uint32_t filter1_sum = 0;
+    rt_uint32_t filter2_sum = 0;
+    rt_uint8_t adc1_index = 0;
+    rt_uint8_t adc2_index = 0;
+    switch(channel)
+    {
+        case channel5:
+            if(adc1_index < FILTER_N){
+                filter1_buf[adc1_index++] = rt_adc_read(adc_dev, 5);
+            }else{
+                filter1_buf[FILTER_N] = rt_adc_read(adc_dev, 5);
+                for(i = 0; i < FILTER_N; i++){
+                    filter1_buf[i] = filter1_buf[i + 1];  //所有数据左移，低位仍掉
+                    filter1_sum += filter1_buf[i];
+                }
+
+                filter_sum = (rt_uint32_t)(filter1_sum / FILTER_N);
+            }
+        break;
+        case channel6:
+            if(adc2_index < FILTER_N){
+                filter2_buf[adc1_index++] = rt_adc_read(adc_dev, 5);
+            }else{
+                filter2_buf[FILTER_N] = rt_adc_read(adc_dev, 5);
+                for(i = 0; i < FILTER_N; i++){
+                    filter2_buf[i] = filter2_buf[i + 1];  //所有数据左移，低位仍掉
+                    filter2_sum += filter2_buf[i];
+                }
+
+                filter_sum = (rt_uint32_t)(filter2_sum / FILTER_N);
+            }
+        break;
+    }
+
+    return filter_sum;
+}
 
 
 void phy_reset(void)
@@ -54,12 +105,10 @@ int main(void)
     
     while (RT_TRUE)
     {   
-        adc_val[0] = rt_adc_read(adc_dev, 5);
-        adc_val[1] = rt_adc_read(adc_dev, 6);
-        adc_val[2] = rt_adc_read(adc_dev, 7);
-        adc_val[3] = rt_adc_read(adc_dev, 8);
+        adc_val[0] = Filter(channel5);
+        adc_val[1] = Filter(channel6);
 
-        rt_thread_mdelay(1000);
+        rt_thread_mdelay(100);
     }
 
     return RT_EOK;
