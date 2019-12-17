@@ -65,13 +65,28 @@ static void usb_cdc_entry(void *param)
                     break;
                     case 0xFB:       //开启直流电源
                         if(dataRecv[2] == DC_Power_ON){
-                            g_uart_sendto_Dpsp("OUTP ON");
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp("VOLT 110.0");
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
                         }else if(dataRecv[2] == DC_Power_OFF){
-                            g_uart_sendto_Dpsp("OUTP OFF");
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");
                         }                  
                         g_usb_cdc_sendData(dataRecv,recvLen);      
+                    break;
+                    case 0xFA:       //源效应电压设置
+                        if(dataRecv[2] == 0x01){
+                            g_uart_sendto_Dpsp("VOLT 70.0");
+                        }else if(dataRecv[2] == 0x02){
+                            g_uart_sendto_Dpsp("VOLT 77.0");
+                        }else if(dataRecv[2] == 0x03){
+                            g_uart_sendto_Dpsp("VOLT 110.0");
+                        }else if(dataRecv[2] == 0x04){
+                            g_uart_sendto_Dpsp("VOLT 137.5");
+                        }else if(dataRecv[2] == 0x05){
+                            g_uart_sendto_Dpsp("VOLT 142.0");
+                        }                         
+                        g_usb_cdc_sendData(dataRecv,recvLen);     
+                        rt_thread_mdelay(1000); 
                     break;
                 }
             }

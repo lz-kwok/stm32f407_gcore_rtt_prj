@@ -18,10 +18,14 @@
 
 /* 事件控制块 */
 static struct rt_event g_event1;
+static struct rt_event g_event2;
 /* 串口设备句柄 */
 static rt_device_t g_uart1 = RT_NULL;
 const char *uart1_name = "uart1";
+static rt_device_t g_uart6 = RT_NULL;
+const char *uart6_name = "uart3";
 
+const rt_uint8_t scan_code[4] = {0xA1,0x5f,0x00,0xfe};
 
 
 static struct serial_configure dpsp_useconfig = {
@@ -71,6 +75,34 @@ void uart_putchar(rt_device_t dev,const rt_uint8_t c)
     while (len != 1 && timeout < 500);
 }
 
+void gScan_Error_Code(rt_device_t dev,const rt_uint8_t *c,rt_uint8_t cmd_len)
+{
+    rt_size_t len = 0;
+    rt_uint32_t timeout = 0;
+    do
+    {
+        len = rt_device_write(dev, 0, c, cmd_len);
+        timeout++;
+    }
+    while (len != cmd_len && timeout < 500);
+}
+
+rt_uint8_t gGet_Error_Code(rt_device_t dev,rt_uint8_t *buf,rt_uint8_t len)
+{
+    rt_uint32_t e;
+    rt_uint8_t rec_len = 0;
+    
+    
+    rec_len = rt_device_read(dev, 0, buf, len);
+    /* 读取1字节数据 */
+//    while (rt_device_read(dev, 0, buf, len) != len)
+//    {
+//         /* 接收事件 */
+//        rt_event_recv(&g_event1, UART_RX_EVENT,RT_EVENT_FLAG_AND | RT_EVENT_FLAG_CLEAR,RT_WAITING_FOREVER, &e);
+//    }
+
+    return 0;
+}
 
 
 rt_device_t uart_open(const char *name)
@@ -92,7 +124,7 @@ rt_device_t uart_open(const char *name)
         }
 
         /* 打开设备，以可读写、中断方式 */
-        res = rt_device_open(dev, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX );       
+        res = rt_device_open(dev, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX );       
         /* 检查返回值 */
         if (res != RT_EOK)
         {
@@ -100,12 +132,12 @@ rt_device_t uart_open(const char *name)
             return RT_NULL;
         }
 
-        res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&dpsp_useconfig);
-        if (res != RT_EOK)
-        {
-            rt_kprintf("control %s device error.%d\n",name,res);
-            return RT_NULL;
-        }
+//        res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&dpsp_useconfig);
+//        if (res != RT_EOK)
+//        {
+//            rt_kprintf("control %s device error.%d\n",name,res);
+//            return RT_NULL;
+//        }
     }
     else
     {
@@ -125,7 +157,6 @@ void g_uart_sendto_Dpsp(const rt_uint8_t *cmd)
     }
 }
 
-
 void uart_thread_entry(void* parameter)
 {    
     rt_uint8_t uart_recv[64] = {0};
@@ -140,6 +171,16 @@ void uart_thread_entry(void* parameter)
             rt_thread_delay(10);
         }
     }
+    
+    /* 打开串口 */
+    g_uart6 = uart_open(uart6_name);
+    if(g_uart6 == RT_NULL){
+        rt_kprintf("%s open error.\n",uart1_name);
+        while (1)
+        {
+            rt_thread_delay(10);
+        }
+    }
     /* 初始化事件对象 */
     rt_event_init(&g_event1, "g_event1", RT_IPC_FLAG_FIFO); 
        
@@ -147,10 +188,17 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        uart_recv[0] = uart_getchar(g_uart1);
+        // uart_putchar(g_uart6,0x88);
+        gScan_Error_Code(g_uart6,scan_code,4);
+        // rt_device_write(g_uart6, 0, scan_code, 4);
+        // rt_thread_delay(100);
+        // if(gGet_Error_Code(g_uart6,uart_recv,8) == 0){
+        //     g_usb_cdc_sendData(uart_recv,8);
+        // };
+//        uart_putchar(g_uart6,0x88);
+//        uart_recv[0] = uart_getchar(g_uart6);
+        rt_thread_mdelay(1000);
         
-        g_usb_cdc_sendData(&uart_recv[0],1);
-        rt_thread_delay(100);
 
     }            
 }

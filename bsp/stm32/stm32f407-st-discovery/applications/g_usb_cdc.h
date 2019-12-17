@@ -66,8 +66,8 @@ typedef enum  {
   Load_Main_ON,
   Load_Main_OFF,
 
+  DC_Power_OFF,
   DC_Power_ON,
-  DC_Power_OFF
 
 } relaycmd;
 
