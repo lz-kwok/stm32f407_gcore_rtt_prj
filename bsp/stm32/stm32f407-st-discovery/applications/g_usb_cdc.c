@@ -9,6 +9,7 @@
 #include <board.h>
 #include <g_usb_cdc.h>
 #include <g_uart.h>
+#include <g_measure.h>
 
 static rt_uint8_t usb_cdc_thread_stack[RT_USB_CDC_THREAD_STACK_SZ];
 static struct rt_mutex usb_lock;
@@ -114,8 +115,12 @@ static void g_usb_timerout_callback(void *parameter)
      if(reSend == 1){
          reSend = 0;
          sendBuf[2] = Load_Main_ON;
-        //  g_usb_cdc_sendData(sendBuf, 10);
+#if RT_CONFIG_USB_CDC
+         g_usb_cdc_sendData(sendBuf, 10);
+#endif
+#if RT_CONFIG_UART3
         g_Client_data_send(sendBuf, 10);
+#endif
      }
 }
 
