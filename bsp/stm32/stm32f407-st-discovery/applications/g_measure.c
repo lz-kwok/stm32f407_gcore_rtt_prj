@@ -47,7 +47,7 @@ static void g_measure_manager_entry(void *param)
                                 rec_buf[2] = Load_Precharge_ON;
                                 sendBuf[1] = rec_buf[1];
                                 sendBuf[2] = rec_buf[2];
-                                // reSend = 1;
+                                g_usb_set_timer(RT_TRUE);
                             }
                             g_usb_cdc_sendData(rec_buf,len);
                         break;

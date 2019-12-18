@@ -49,7 +49,7 @@ static void usb_cdc_entry(void *param)
                             dataRecv[2] = Load_Precharge_ON;
                             sendBuf[1] = dataRecv[1];
                             sendBuf[2] = dataRecv[2];
-                            reSend = 1;
+                            g_usb_set_timer(RT_TRUE);
                         }
                         g_usb_cdc_sendData(dataRecv,recvLen);
                     break;
@@ -114,8 +114,18 @@ static void g_usb_timerout_callback(void *parameter)
      if(reSend == 1){
          reSend = 0;
          sendBuf[2] = Load_Main_ON;
-         g_usb_cdc_sendData(sendBuf, 10);
+        //  g_usb_cdc_sendData(sendBuf, 10);
+        g_Client_data_send(sendBuf, 10);
      }
+}
+
+void g_usb_set_timer(rt_bool_t sta)
+{
+    if(sta == RT_TRUE){
+        reSend = 1;
+    }else{
+        reSend = 0;
+    }
 }
 
 
