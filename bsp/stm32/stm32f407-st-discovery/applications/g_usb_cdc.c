@@ -116,7 +116,6 @@ static void g_usb_timerout_callback(void *parameter)
          sendBuf[2] = Load_Main_ON;
          g_usb_cdc_sendData(sendBuf, 10);
      }
-
 }
 
 

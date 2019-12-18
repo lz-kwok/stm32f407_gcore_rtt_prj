@@ -71,6 +71,8 @@ typedef enum  {
 
 } relaycmd;
 
+extern rt_uint8_t sendBuf[10];
+
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len);
 rt_err_t g_usb_cdc_init(void);
 void g_usb_pin_control(relaycmd cmd);
