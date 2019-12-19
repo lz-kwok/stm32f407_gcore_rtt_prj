@@ -8,6 +8,7 @@
 #include <rtdevice.h>
 #include <board.h>
 #include <g_measure.h>
+#include <g_uart.h>
 #include <g_usb_cdc.h>
 
 static rt_uint8_t measure_thread_stack[RT_MANAGER_THREAD_STACK_SZ];
@@ -27,15 +28,14 @@ static void g_measure_manager_entry(void *param)
             if(msg.what == uart3_rx_signal){
                 rt_uint8_t rec_buf[32];
                 rt_memset(rec_buf,0x0,sizeof(rec_buf));
-                int rec_len;
-                &rec_len = (int *)msg.content;
+                int *rec_len = (int *)msg.content;
 
-                int len = g_Client_data_receive(rec_buf,rec_len);
-                if(len == rec_len){
+                rt_uint8_t c_len = g_Client_data_receive(rec_buf,*rec_len);
+                if(c_len == 8){
                     switch(rec_buf[1])
                     {
                         case 0xFE:       //查询版本
-                            sendBuf[1] = dataRecv[1];
+                            sendBuf[1] = rec_buf[1];
                             sendBuf[2] = MajorVer;
                             sendBuf[3] = MiddleVer;
                             sendBuf[4] = MinnorVer;
@@ -49,7 +49,7 @@ static void g_measure_manager_entry(void *param)
                                 sendBuf[2] = rec_buf[2];
                                 g_usb_set_timer(RT_TRUE);
                             }
-                            g_usb_cdc_sendData(rec_buf,len);
+                            g_Client_data_send(rec_buf,8);
                         break;
                         case 0xFC:       //逆变器软启动
                             sendBuf[1] = rec_buf[1];
@@ -69,7 +69,7 @@ static void g_measure_manager_entry(void *param)
                             }else if(rec_buf[2] == DC_Power_OFF){
                                 g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");
                             }                  
-                            g_usb_cdc_sendData(rec_buf,len);      
+                            g_usb_cdc_sendData(rec_buf,c_len);      
                         break;
                         case 0xFA:       //源效应电压设置
                             if(rec_buf[2] == 0x01){
@@ -83,7 +83,7 @@ static void g_measure_manager_entry(void *param)
                             }else if(rec_buf[2] == 0x05){
                                 g_uart_sendto_Dpsp("VOLT 142.0");
                             }                         
-                            g_Client_data_send(rec_buf,len);     
+                            g_Client_data_send(rec_buf,c_len);     
                             rt_thread_mdelay(1000); 
                         break;
                     }

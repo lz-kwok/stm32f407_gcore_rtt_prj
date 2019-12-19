@@ -29,7 +29,7 @@ static rt_device_t g_uart6 = RT_NULL;
 const char *uart6_name = "uart6";
 
 const rt_uint8_t scan_code[4] = {0xA1,0x5f,0x00,0xfe};
-
+const rt_uint8_t uart3_int_num = 8;
 
 static struct serial_configure dpsp_useconfig = {
     BAUD_RATE_115200,
@@ -46,8 +46,14 @@ static struct serial_configure dpsp_useconfig = {
 static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
 {
     if(dev == g_uart3){
-        int uart3_recv_size = size;
-        g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_recv_size);
+        // static int uart3_recv_size = 0;
+        // uart3_recv_size += size;
+        // size = 0;
+        if(size == uart3_int_num){
+            // uart3_recv_size = 0;
+            g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
+        }
+        
     }
     /* 发送事件 */
     // rt_event_send(&g_event1, UART_RX_EVENT);
@@ -74,23 +80,24 @@ rt_uint8_t g_Client_data_receive(rt_uint8_t *buf,rt_uint8_t len)
 {
     rt_uint8_t ch;
 
-    rt_uint8_t recv_size = (sizeof(buf) - 1)>len ? len : (sizeof(buf) - 1);
+    // rt_uint8_t recv_size = (sizeof(buf) - 1)>len ? len : (sizeof(buf) - 1);
 
-    ch = rt_device_read(g_uart3, 0, buf, recv_size);
+    ch = rt_device_read(g_uart3, 0, buf, len);
 
     return ch;
 }
 
 void g_Client_data_send(rt_uint8_t *buf,rt_uint8_t len)
 {
-    rt_size_t len = 0;
-    rt_uint32_t timeout = 0;
-    do
-    {
-        len = rt_device_write(g_uart3, 0, buf, len);
-        timeout++;
-    }
-    while (len != 1 && timeout < 500);
+    // rt_size_t m_len = 0;
+    // rt_uint32_t timeout = 0;
+    // do
+    // {
+    //     m_len = rt_device_write(g_uart3, 0, buf, len);
+    //     timeout++;
+    // }
+    // while (m_len != len && timeout < 500);
+    rt_device_write(g_uart3, 0, (const void *)buf, len);
 }
 
 void uart_putchar(rt_device_t dev,const rt_uint8_t c)
@@ -227,7 +234,7 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        gScan_Error_Code(g_uart6,scan_code,4);
+        // gScan_Error_Code(g_uart6,scan_code,4);
 
         rt_thread_mdelay(1000);
         
