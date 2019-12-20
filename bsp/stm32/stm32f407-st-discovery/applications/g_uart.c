@@ -17,9 +17,6 @@
 /* 串口接收事件标志 */
 #define UART_RX_EVENT (1 << 0)
 
-/* 事件控制块 */
-static struct rt_event g_event1;
-// static struct rt_event g_event2;
 /* 串口设备句柄 */
 static rt_device_t g_uart1 = RT_NULL;
 const char *uart1_name = "uart1";
@@ -46,17 +43,11 @@ static struct serial_configure dpsp_useconfig = {
 static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
 {
     if(dev == g_uart3){
-        // static int uart3_recv_size = 0;
-        // uart3_recv_size += size;
-        // size = 0;
         if(size == uart3_int_num){
-            // uart3_recv_size = 0;
             g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
         }
         
     }
-    /* 发送事件 */
-    // rt_event_send(&g_event1, UART_RX_EVENT);
     
     return RT_EOK;
 }
@@ -131,12 +122,6 @@ rt_uint8_t gGet_Error_Code(rt_device_t dev,rt_uint8_t *buf,rt_uint8_t len)
     
     
     rec_len = rt_device_read(dev, 0, buf, len);
-    /* 读取1字节数据 */
-//    while (rt_device_read(dev, 0, buf, len) != len)
-//    {
-//         /* 接收事件 */
-//        rt_event_recv(&g_event1, UART_RX_EVENT,RT_EVENT_FLAG_AND | RT_EVENT_FLAG_CLEAR,RT_WAITING_FOREVER, &e);
-//    }
 
     return 0;
 }
@@ -227,8 +212,6 @@ void uart_thread_entry(void* parameter)
             rt_thread_delay(10);
         }
     }
-    /* 初始化事件对象 */
-    // rt_event_init(&g_event1, "g_event1", RT_IPC_FLAG_FIFO); 
        
     rt_kprintf("%s\n",__func__);
     

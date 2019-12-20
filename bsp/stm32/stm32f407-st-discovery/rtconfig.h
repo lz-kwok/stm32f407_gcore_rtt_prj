@@ -92,6 +92,7 @@
 #define BSP_USING_ADC3
 #define RT_USING_MTD_NAND
 #define RT_MTD_NAND_DEBUG
+#define RT_USING_SPI
 
 /* Using USB */
 
@@ -249,6 +250,8 @@
 #define BSP_USING_UART1
 #define BSP_USING_UART3
 #define BSP_USING_UART6
+#define BSP_USING_SPI
+#define BSP_USING_SPI2
 #define BSP_USING_USBD_FS
 #define BSP_USING_USBD_FS_DEVICE
 #define BSP_USING_FMC
