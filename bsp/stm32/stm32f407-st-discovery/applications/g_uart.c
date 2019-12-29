@@ -52,20 +52,6 @@ static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
     return RT_EOK;
 }
 
-rt_uint8_t uart_getchar(rt_device_t dev)
-{
-    rt_uint32_t e;
-    rt_uint8_t ch;
-    
-    /* 读取1字节数据 */
-    while (rt_device_read(dev, 0, &ch, 1) != 1)
-    {
-         /* 接收事件 */
-        rt_event_recv(&g_event1, UART_RX_EVENT,RT_EVENT_FLAG_AND | RT_EVENT_FLAG_CLEAR,RT_WAITING_FOREVER, &e);
-    }
-
-    return ch;
-}
 
 rt_uint8_t g_Client_data_receive(rt_uint8_t *buf,rt_uint8_t len)
 {
@@ -117,7 +103,6 @@ void gScan_Error_Code(rt_device_t dev,const rt_uint8_t *c,rt_uint8_t cmd_len)
 
 rt_uint8_t gGet_Error_Code(rt_device_t dev,rt_uint8_t *buf,rt_uint8_t len)
 {
-    rt_uint32_t e;
     rt_uint8_t rec_len = 0;
     
     
