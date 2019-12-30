@@ -8,6 +8,7 @@ main.c
 g_uart.c
 g_usb_cdc.c
 g_measure.c
+g_ade7880.c
 """)
 
 group = DefineGroup('Applications', src, depend = [''], CPPPATH = CPPPATH)
