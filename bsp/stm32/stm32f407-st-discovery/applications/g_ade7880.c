@@ -40,6 +40,8 @@ rt_uint32_t PhaseAVRMS   = 0;
 rt_uint16_t PhaseAPeroid = 0;
 rt_uint32_t PhaseAAngle  = 0;
 
+rt_uint8_t HARFlag = 0;         //谐波
+
 static struct rt_spi_device spi_dev_ade7880;    // SPI设备ssd1351对象 
 static struct stm32_hw_spi_cs  spi_cs;	        // SPI设备CS片选引脚 
 
@@ -293,9 +295,9 @@ void rt_hw_ade7880_reg_cfg(void)
 	SPIWrite1Byte(LCYCMODE,0x0F);			  //phase A is selected for zero cross
 	SPIWrite2Bytes(LINECYC,0x0064);
 
-    SPIWrite2Bytes(HCONFIG,0x0020);
+    SPIWrite2Bytes(HCONFIG,0x0009);           // 750ms
 
-	SPIWrite4Bytes(MASK0,0x00000020);	      //line cycle interrupt enable
+	SPIWrite4Bytes(MASK0,0x00080020);	      //line cycle interrupt enable
 	SPIWrite4Bytes(MASK1,0x00000000);   
 }
 
@@ -312,6 +314,9 @@ static void rt_hw_ade7880_irq1_handler(void *arg)
     if ((IRQSTATUS & REG_BIT13) == REG_BIT13)	//External Interrupt0 source
 	{
 		 IRQFlag = 1;
+	}if ((IRQSTATUS & REG_BIT19) == REG_BIT19)	//External Interrupt0 source
+	{
+		 HARFlag = 1;
 	}
 }
 
@@ -352,6 +357,25 @@ void rt_hw_ade7880_IVE_get(void)
 {
     if(IRQFlag == 1){
         IRQFlag = 0;
+
+        IRQStautsRead0 = SPIRead4Bytes(STATUS0);		    //read the interrupt status
+        SPIDelay();			
+        SPIWrite4Bytes(STATUS0,IRQStautsRead0);             //write the same STATUSx content back to clear the flag and reset the IRQ line
+        SPIDelay();  
+
+        PhaseAEnergy = SPIRead4Bytes(AWATTHR);		 
+        PhaseAIRMS   = SPIRead4Bytes(AIRMS);
+        PhaseAVRMS   = SPIRead4Bytes(AVRMS);
+        PhaseAPeroid = SPIRead2Bytes(APERIOD);
+
+        ADE7880_TRACE("%s PhaseAEnergy = %d,PhaseAIRMS = %d,PhaseAVRMS = %d,PhaseAPeroid = %d\n");
+    }
+}
+
+void rt_hw_ade7880_HAR_get(void)
+{
+    if(HARFlag == 1){
+        HARFlag = 0;
 
         IRQStautsRead0 = SPIRead4Bytes(STATUS0);		    //read the interrupt status
         SPIDelay();			
