@@ -239,6 +239,12 @@ typedef enum {
 #define   REG_BIT29 				0x20000000
 #define   REG_BIT30 				0x40000000
 
+
+
+
+int rt_hw_ade7880_int(void);
+void rt_hw_ade7880_IVE_get(void);
+
 #ifdef __cplusplus
 }
 #endif

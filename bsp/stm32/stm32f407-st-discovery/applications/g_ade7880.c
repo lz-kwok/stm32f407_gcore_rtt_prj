@@ -293,6 +293,8 @@ void rt_hw_ade7880_reg_cfg(void)
 	SPIWrite1Byte(LCYCMODE,0x0F);			  //phase A is selected for zero cross
 	SPIWrite2Bytes(LINECYC,0x0064);
 
+    SPIWrite2Bytes(HCONFIG,0x0020);
+
 	SPIWrite4Bytes(MASK0,0x00000020);	      //line cycle interrupt enable
 	SPIWrite4Bytes(MASK1,0x00000000);   
 }
