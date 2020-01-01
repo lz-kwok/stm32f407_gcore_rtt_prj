@@ -21,7 +21,7 @@ extern "C" {
 #define   ade7880_pm1_pin			GET_PIN(F, 14)
 #define   ade7880_irq0_pin			GET_PIN(A, 3)
 #define   ade7880_irq1_pin			GET_PIN(A, 0)
-
+#define   ade7880_cs_pin			GET_PIN(E, 11)
 
 typedef enum {
 	PSM0 = 0,		//PSM0正常功耗模式

@@ -17,6 +17,7 @@
 #include <g_usb_cdc.h>
 #include <g_uart.h>
 #include <g_measure.h>
+#include <g_ade7880.h>
 
 typedef enum  {
   channel5         = 1,
@@ -100,6 +101,7 @@ int main(void)
     g_measure_manager_init();
     g_usb_cdc_init();
     g_uart_init();
+    rt_hw_ade7880_int();
     rt_thread_mdelay(1000);
 
     adc_dev = (rt_adc_device_t)rt_device_find(ADC_DEV_NAME);

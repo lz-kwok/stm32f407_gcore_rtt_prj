@@ -7,6 +7,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <board.h>
+#include <drv_spi.h>
 #include <g_measure.h>
 #include <g_uart.h>
 #include <g_usb_cdc.h>
@@ -25,10 +26,10 @@
 #define ADE7880_TRACE(...)
 #endif 
 
-struct stm32_hw_spi_cs
-{
-    rt_uint32_t pin;
-};
+//struct stm32_hw_spi_cs
+//{
+//rt_uint32_t pin;
+//};
 
 rt_uint32_t IRQStautsRead0 = 0;
 rt_uint32_t IRQStautsRead1 = 0;
@@ -82,25 +83,25 @@ static void rt_hw_ade7880_pm_select(PSM_MODE psm_mode)
             //order PSM3: PM1=1, PM0=1
             rt_pin_write(ade7880_pm0_pin, PIN_HIGH);
             rt_pin_write(ade7880_pm1_pin, PIN_HIGH);
-            break
+            break;
     }
 }
 
 static void rt_hw_ade7880_spi_setup(void)
 {
-    rt_pin_write(spi_cs.pin, PIN_HIGH);
+    rt_pin_write(ade7880_cs_pin, PIN_HIGH);
 	rt_thread_mdelay(5);
-	rt_pin_write(spi_cs.pin, PIN_LOW);	  //toggle once
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //toggle once
 	rt_thread_mdelay(5);
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
 	rt_thread_mdelay(5);
-	rt_pin_write(spi_cs.pin, PIN_LOW);	  //toggle twice
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //toggle twice
 	rt_thread_mdelay(5);
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
 	rt_thread_mdelay(5);
-	rt_pin_write(spi_cs.pin, PIN_LOW);	  //triple triple
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //triple triple
 	rt_thread_mdelay(5);
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
 	rt_thread_mdelay(5);
 
 	// SPIWrite1Byte(0xEC01, 0x00);	 //SPI is the active serial port, any write to CONFIG2 register locks the port
@@ -124,8 +125,9 @@ static int rt_hw_ade7880_spi_config(void)
     rt_err_t res;
 
     // ade7880 use PE11 as CS 
-    spi_cs.pin = CS_PIN;
-    rt_pin_mode(spi_cs.pin, PIN_MODE_OUTPUT);    // 设置片选管脚模式为输出 
+	spi_cs.GPIOx = GPIOE;
+    spi_cs.GPIO_Pin = GPIO_PIN_11;
+    rt_pin_mode(ade7880_cs_pin, PIN_MODE_OUTPUT);    // 设置片选管脚模式为输出 
 
     res = rt_spi_bus_attach_device(&spi_dev_ade7880, SPI_ADE7880_DEVICE_NAME, SPI_BUS_NAME, (void*)&spi_cs);
     if (res != RT_EOK)
@@ -134,12 +136,14 @@ static int rt_hw_ade7880_spi_config(void)
         return res;
     }
 
+	spi_dev_ade7880.parent.user_data = (void*)&spi_cs;
+
     /* config spi */
     {
         struct rt_spi_configuration cfg;
         cfg.data_width = 8;
-        cfg.mode = RT_SPI_MASTER | RT_SPI_MODE_0 | RT_SPI_MSB;
-        cfg.max_hz = 5 * 1000 *1000;       // 5M,SPI max 42MHz 
+        cfg.mode = RT_SPI_MASTER | RT_SPI_MODE_1 | RT_SPI_MSB;
+        cfg.max_hz = 1 * 1000 *1000;       // 5M,SPI max 42MHz 
 
         rt_spi_configure(&spi_dev_ade7880, &cfg);
     }
@@ -156,7 +160,7 @@ static void SPIDelay(void)
 static void SPIWrite2Bytes(rt_uint16_t address , rt_uint16_t sendtemp)
 {
 	rt_uint8_t szTxData[7];
-	rt_pin_write(spi_cs.pin, PIN_LOW);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_LOW);
 	szTxData[0] = 0x00; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
 	szTxData[2] = (rt_uint8_t)(address);
@@ -165,13 +169,13 @@ static void SPIWrite2Bytes(rt_uint16_t address , rt_uint16_t sendtemp)
 
     rt_spi_send(&spi_dev_ade7880,szTxData,5);
     SPIDelay();
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 }
 
 static void SPIWrite4Bytes(rt_uint16_t address , rt_uint32_t sendtemp)
 {
 	rt_uint8_t szTxData[7];
-	rt_pin_write(spi_cs.pin, PIN_LOW);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_LOW);
 	szTxData[0] = 0x00; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
 	szTxData[2] = (rt_uint8_t)(address);
@@ -182,14 +186,14 @@ static void SPIWrite4Bytes(rt_uint16_t address , rt_uint32_t sendtemp)
 	
     rt_spi_send(&spi_dev_ade7880,szTxData,7);
     SPIDelay();
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 }
 
 static void SPIWrite1Byte(rt_uint16_t address , rt_uint8_t sendtemp)
 {
 	char i;
 	rt_uint8_t szTxData[7];
-	rt_pin_write(spi_cs.pin, PIN_LOW);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_LOW);
 	szTxData[0] = 0x00; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
 	szTxData[2] = (rt_uint8_t)(address);
@@ -197,7 +201,7 @@ static void SPIWrite1Byte(rt_uint16_t address , rt_uint8_t sendtemp)
 
 	rt_spi_send(&spi_dev_ade7880,szTxData,4);
     SPIDelay();
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 }
 
 static rt_uint32_t SPIRead4Bytes(rt_uint16_t address)
@@ -206,7 +210,7 @@ static rt_uint32_t SPIRead4Bytes(rt_uint16_t address)
 	rt_uint8_t szTxData[7];
 	rt_uint8_t spireadbuf[4];
 
-	rt_pin_write(spi_cs.pin, PIN_LOW);
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);
 	szTxData[0] = 0x01; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
 	szTxData[2] = (rt_uint8_t)(address); 
@@ -215,7 +219,7 @@ static rt_uint32_t SPIRead4Bytes(rt_uint16_t address)
 
 	readout = (spireadbuf[0]<<24)+(spireadbuf[1]<<16)+(spireadbuf[2]<<8)+spireadbuf[3];
 
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
 
 	return(readout); 
 }
@@ -226,7 +230,7 @@ static rt_uint16_t SPIRead2Bytes(rt_uint16_t address)
 	rt_uint8_t szTxData[7];
 	rt_uint8_t spireadbuf[2];
 
-	rt_pin_write(spi_cs.pin, PIN_LOW);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_LOW);
 	szTxData[0] = 0x01; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
 	szTxData[2] = (rt_uint8_t)(address); 
@@ -235,7 +239,7 @@ static rt_uint16_t SPIRead2Bytes(rt_uint16_t address)
 		
 	readout = (spireadbuf[0]<<8)+spireadbuf[1];
 
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 
 	return(readout);
 }
@@ -245,14 +249,14 @@ static rt_uint8_t SPIRead1Bytes(rt_uint16_t address)
 	rt_uint8_t szTxData[7];
 	rt_uint8_t spireadbuf;
 
-	rt_pin_write(spi_cs.pin, PIN_LOW);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_LOW);
 	szTxData[0] = 0x01; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
 	szTxData[2] = (rt_uint8_t)(address); 
-	
+
 	rt_spi_send_then_recv(&spi_dev_ade7880,szTxData,3,&spireadbuf,1);
 
-	rt_pin_write(spi_cs.pin, PIN_HIGH);
+	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 
 	return(spireadbuf);
 }
@@ -303,7 +307,16 @@ void rt_hw_ade7880_reg_cfg(void)
 
 static void rt_hw_ade7880_irq0_handler(void *arg)
 {
+    rt_uint32_t IRQSTATUS = 0;
 
+	// IRQSTATUS = SPIRead4Bytes(MASK0);	  // Read off IRQSTA register
+    if ((IRQSTATUS & REG_BIT13) == REG_BIT13)	//External Interrupt0 source
+	{
+		 IRQFlag = 1;
+	}if ((IRQSTATUS & REG_BIT19) == REG_BIT19)	//External Interrupt0 source
+	{
+		 HARFlag = 1;
+	}
 }
 
 static void rt_hw_ade7880_irq1_handler(void *arg)
@@ -338,6 +351,8 @@ int rt_hw_ade7880_int(void)
     rt_hw_ade7880_reset();
     rt_hw_ade7880_pm_select(PSM0);
     rt_hw_ade7880_spi_setup();
+
+	rt_uint8_t chip_Version = rt_spi_sendrecv8(&spi_dev_ade7880,Version);
 
     IRQStautsRead0 = SPIRead4Bytes(STATUS1);
 	SPIWrite4Bytes(STATUS1,IRQStautsRead0);
