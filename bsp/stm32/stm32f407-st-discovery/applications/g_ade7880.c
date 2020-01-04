@@ -50,11 +50,12 @@ static struct stm32_hw_spi_cs  spi_cs;	        // SPI设备CS片选引脚
 static void rt_hw_ade7880_reset(void)
 {
 	rt_pin_mode(ade7880_rst_pin,PIN_MODE_OUTPUT);
+    rt_pin_write(ade7880_rst_pin, PIN_HIGH);
 	rt_thread_mdelay(10);
-	rt_pin_write(phy_rst_pin, PIN_LOW);
+	rt_pin_write(ade7880_rst_pin, PIN_LOW);
 	rt_thread_mdelay(30);		
     ADE7880_TRACE("%s done\r\n",__func__);
-	rt_pin_write(phy_rst_pin, PIN_HIGH);
+	rt_pin_write(ade7880_rst_pin, PIN_HIGH);
 	rt_thread_mdelay(100);	       	
 }
 
@@ -87,36 +88,7 @@ static void rt_hw_ade7880_pm_select(PSM_MODE psm_mode)
     }
 }
 
-static void rt_hw_ade7880_spi_setup(void)
-{
-    rt_pin_write(ade7880_cs_pin, PIN_HIGH);
-	rt_thread_mdelay(5);
-	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //toggle once
-	rt_thread_mdelay(5);
-	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
-	rt_thread_mdelay(5);
-	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //toggle twice
-	rt_thread_mdelay(5);
-	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
-	rt_thread_mdelay(5);
-	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //triple triple
-	rt_thread_mdelay(5);
-	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
-	rt_thread_mdelay(5);
 
-	// SPIWrite1Byte(0xEC01, 0x00);	 //SPI is the active serial port, any write to CONFIG2 register locks the port
-
-	//The 2nd way to choose SPI mode is to execute three SPI write operations 
-	//to a location in the address space that is not allocated to a specific ADE78xx register
-	/*
-	SPIWrite1Byte(0xEBFF, 0x00);								 
-	SPI_read_32(0xEBFF);
-	SPIWrite1Byte(0xEBFF, 0x00);
-	SPI_read_32(0xEBFF);
-	SPIWrite1Byte(0xEBFF, 0x00);
-	SPI_read_32(0xEBFF);
-	*/
-}
 
 
 
@@ -127,7 +99,7 @@ static int rt_hw_ade7880_spi_config(void)
     // ade7880 use PE11 as CS 
 	spi_cs.GPIOx = GPIOE;
     spi_cs.GPIO_Pin = GPIO_PIN_11;
-    rt_pin_mode(ade7880_cs_pin, PIN_MODE_OUTPUT);    // 设置片选管脚模式为输出 
+    // rt_pin_mode(ade7880_cs_pin, PIN_MODE_OUTPUT);    // 设置片选管脚模式为输出 
 
     res = rt_spi_bus_attach_device(&spi_dev_ade7880, SPI_ADE7880_DEVICE_NAME, SPI_BUS_NAME, (void*)&spi_cs);
     if (res != RT_EOK)
@@ -142,7 +114,7 @@ static int rt_hw_ade7880_spi_config(void)
     {
         struct rt_spi_configuration cfg;
         cfg.data_width = 8;
-        cfg.mode = RT_SPI_MASTER | RT_SPI_MODE_1 | RT_SPI_MSB;
+        cfg.mode = RT_SPI_MASTER | RT_SPI_MODE_0 | RT_SPI_MSB;
         cfg.max_hz = 1 * 1000 *1000;       // 5M,SPI max 42MHz 
 
         rt_spi_configure(&spi_dev_ade7880, &cfg);
@@ -204,7 +176,7 @@ static void SPIWrite1Byte(rt_uint16_t address , rt_uint8_t sendtemp)
 	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 }
 
-static rt_uint32_t SPIRead4Bytes(rt_uint16_t address)
+rt_uint32_t SPIRead4Bytes(rt_uint16_t address)
 {
 	rt_uint32_t readout;
 	rt_uint8_t szTxData[7];
@@ -244,7 +216,7 @@ static rt_uint16_t SPIRead2Bytes(rt_uint16_t address)
 	return(readout);
 }
 
-static rt_uint8_t SPIRead1Bytes(rt_uint16_t address)
+rt_uint8_t SPIRead1Bytes(rt_uint16_t address)
 {
 	rt_uint8_t szTxData[7];
 	rt_uint8_t spireadbuf;
@@ -259,6 +231,38 @@ static rt_uint8_t SPIRead1Bytes(rt_uint16_t address)
 	// rt_pin_write(spi_cs.GPIO_Pin, PIN_HIGH);
 
 	return(spireadbuf);
+}
+
+static void rt_hw_ade7880_spi_setup(void)
+{
+	rt_pin_mode(ade7880_cs_pin, PIN_MODE_OUTPUT);    // 设置片选管脚模式为输出 
+    rt_pin_write(ade7880_cs_pin, PIN_HIGH);
+	rt_thread_mdelay(5);
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //toggle once
+	rt_thread_mdelay(5);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
+	rt_thread_mdelay(5);
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //toggle twice
+	rt_thread_mdelay(5);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
+	rt_thread_mdelay(5);
+	rt_pin_write(ade7880_cs_pin, PIN_LOW);	  //triple triple
+	rt_thread_mdelay(5);
+	rt_pin_write(ade7880_cs_pin, PIN_HIGH);
+	rt_thread_mdelay(5);
+
+//	SPIWrite1Byte(0xEC01, 0x00);	 //SPI is the active serial port, any write to CONFIG2 register locks the port
+
+	//The 2nd way to choose SPI mode is to execute three SPI write operations 
+	//to a location in the address space that is not allocated to a specific ADE78xx register
+	/*
+	SPIWrite1Byte(0xEBFF, 0x00);								 
+	SPI_read_32(0xEBFF);
+	SPIWrite1Byte(0xEBFF, 0x00);
+	SPI_read_32(0xEBFF);
+	SPIWrite1Byte(0xEBFF, 0x00);
+	SPI_read_32(0xEBFF);
+	*/
 }
 
 void rt_hw_ade7880_reg_cfg(void)
@@ -309,7 +313,7 @@ static void rt_hw_ade7880_irq0_handler(void *arg)
 {
     rt_uint32_t IRQSTATUS = 0;
 
-	// IRQSTATUS = SPIRead4Bytes(MASK0);	  // Read off IRQSTA register
+//	IRQSTATUS = SPIRead4Bytes(MASK0);	  // Read off IRQSTA register
     if ((IRQSTATUS & REG_BIT13) == REG_BIT13)	//External Interrupt0 source
 	{
 		 IRQFlag = 1;
@@ -323,7 +327,7 @@ static void rt_hw_ade7880_irq1_handler(void *arg)
 {
     rt_uint32_t IRQSTATUS = 0;
 
-	IRQSTATUS = SPIRead4Bytes(MASK0);	  // Read off IRQSTA register
+//	IRQSTATUS = SPIRead4Bytes(MASK0);	  // Read off IRQSTA register
     if ((IRQSTATUS & REG_BIT13) == REG_BIT13)	//External Interrupt0 source
 	{
 		 IRQFlag = 1;
@@ -347,12 +351,12 @@ void rt_hw_ade7880_irq_init()
 
 int rt_hw_ade7880_int(void)
 {
-    rt_hw_ade7880_spi_config();
+	rt_hw_ade7880_pm_select(PSM0);
     rt_hw_ade7880_reset();
-    rt_hw_ade7880_pm_select(PSM0);
     rt_hw_ade7880_spi_setup();
+	rt_hw_ade7880_spi_config();
 
-	rt_uint8_t chip_Version = rt_spi_sendrecv8(&spi_dev_ade7880,Version);
+	rt_uint8_t chip_Version = SPIRead1Bytes(Version);
 
     IRQStautsRead0 = SPIRead4Bytes(STATUS1);
 	SPIWrite4Bytes(STATUS1,IRQStautsRead0);

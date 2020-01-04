@@ -112,8 +112,9 @@ int main(void)
     {   
         adc_val[0] = Filter(channel5);
         adc_val[1] = Filter(channel6);
-
         rt_thread_mdelay(100);
+        rt_uint8_t chip_Version = SPIRead1Bytes(Version);
+        g_Client_data_send(&chip_Version,1);
         index ++;
         if(index == 10){
             index = 0;
@@ -127,6 +128,8 @@ int main(void)
             data_adc[5] = cur%100;
 //            g_usb_cdc_sendData(data_adc, 8);
         }
+
+        
     }
 
     return RT_EOK;

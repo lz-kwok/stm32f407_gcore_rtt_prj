@@ -246,6 +246,8 @@ typedef enum {
 int rt_hw_ade7880_int(void);
 void rt_hw_ade7880_IVE_get(void);
 void rt_hw_ade7880_HAR_get(void);
+rt_uint32_t SPIRead4Bytes(rt_uint16_t address);
+rt_uint8_t SPIRead1Bytes(rt_uint16_t address);
 
 #ifdef __cplusplus
 }
