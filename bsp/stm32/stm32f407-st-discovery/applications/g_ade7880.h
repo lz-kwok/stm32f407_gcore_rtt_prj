@@ -23,6 +23,8 @@ extern "C" {
 #define   ade7880_irq1_pin			GET_PIN(A, 0)
 #define   ade7880_cs_pin			GET_PIN(E, 11)
 
+#define   ade7880_chip_version		0x01
+
 typedef enum {
 	PSM0 = 0,		//PSM0正常功耗模式
 	PSM1,			//PSM1降耗模式
@@ -246,8 +248,6 @@ typedef enum {
 int rt_hw_ade7880_int(void);
 void rt_hw_ade7880_IVE_get(void);
 void rt_hw_ade7880_HAR_get(void);
-rt_uint32_t SPIRead4Bytes(rt_uint16_t address);
-rt_uint8_t SPIRead1Bytes(rt_uint16_t address);
 
 #ifdef __cplusplus
 }

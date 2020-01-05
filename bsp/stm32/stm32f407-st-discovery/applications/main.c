@@ -113,8 +113,7 @@ int main(void)
         adc_val[0] = Filter(channel5);
         adc_val[1] = Filter(channel6);
         rt_thread_mdelay(100);
-        rt_uint8_t chip_Version = SPIRead1Bytes(Version);
-        g_Client_data_send(&chip_Version,1);
+        rt_hw_ade7880_IVE_get();
         index ++;
         if(index == 10){
             index = 0;

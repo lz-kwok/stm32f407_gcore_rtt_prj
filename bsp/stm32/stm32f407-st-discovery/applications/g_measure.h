@@ -14,8 +14,8 @@
 extern "C" {
 #endif
 
-#define RT_CONFIG_USB_CDC               1
-#define RT_CONFIG_UART3                 0
+#define RT_CONFIG_USB_CDC               0
+#define RT_CONFIG_UART3                 1
 
 #define RT_MANAGER_THREAD_STACK_SZ      1024
 #define RT_MANAGER_THREAD_PRIO          5
