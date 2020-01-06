@@ -363,6 +363,8 @@ int rt_hw_ade7880_int(void)
 
         rt_hw_ade7880_irq_init();
         rt_hw_ade7880_reg_cfg();
+		rt_thread_mdelay(100);
+		SPIWrite2Bytes(RUN,0x0001);	  	//run ADE7880 DSP
         return 0;
 	}
 
