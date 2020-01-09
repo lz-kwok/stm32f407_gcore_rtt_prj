@@ -32,6 +32,14 @@ typedef enum {
 	PSM3			//PSM3休眠模式
 }PSM_MODE;
 
+typedef struct {
+	rt_uint32_t PhaseAEnergy;
+	rt_uint32_t PhaseAIRMS;
+	rt_uint32_t PhaseAVRMS;
+	rt_uint32_t PhaseAPeroid;
+}ade_base_parameter;
+ade_base_parameter g_ade_base_parameter;
+
 #define   AIGAIN	           		0x4380
 #define   AVGAIN	          		0x4381
 #define   BIGAIN	           		0x4382

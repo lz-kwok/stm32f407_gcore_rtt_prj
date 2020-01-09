@@ -27,6 +27,7 @@ const char *uart6_name = "uart6";
 
 const rt_uint8_t scan_code[4] = {0xA1,0x5f,0x00,0xfe};
 const rt_uint8_t uart3_int_num = 8;
+const rt_uint8_t uart6_int_num = 8;
 
 static struct serial_configure dpsp_useconfig = {
     BAUD_RATE_115200,
@@ -47,6 +48,10 @@ static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
             g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
         }
         
+    }else if(dev == g_uart6){
+        if(size == uart6_int_num){
+            g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
+        }
     }
     
     return RT_EOK;
@@ -54,6 +59,17 @@ static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
 
 
 rt_uint8_t g_Client_data_receive(rt_uint8_t *buf,rt_uint8_t len)
+{
+    rt_uint8_t ch;
+
+    // rt_uint8_t recv_size = (sizeof(buf) - 1)>len ? len : (sizeof(buf) - 1);
+
+    ch = rt_device_read(g_uart3, 0, buf, len);
+
+    return ch;
+}
+
+rt_uint8_t g_ErrorCode_data_receive(rt_uint8_t *buf,rt_uint8_t len)
 {
     rt_uint8_t ch;
 
@@ -89,13 +105,13 @@ void uart_putchar(rt_device_t dev,const rt_uint8_t c)
     while (len != 1 && timeout < 500);
 }
 
-void gScan_Error_Code(rt_device_t dev,const rt_uint8_t *c,rt_uint8_t cmd_len)
+void gScan_Error_Code(void)
 {
     rt_size_t len = 0;
     rt_uint32_t timeout = 0;
     do
     {
-        len = rt_device_write(dev, 0, c, cmd_len);
+        len = rt_device_write(g_uart6, 0, scan_code, 4);
         timeout++;
     }
     while (len != cmd_len && timeout < 500);
@@ -203,9 +219,8 @@ void uart_thread_entry(void* parameter)
     while (1)
     {   
         // gScan_Error_Code(g_uart6,scan_code,4);
-
-        rt_thread_mdelay(1000);
-        
+        rt_hw_ade7880_IVE_get();
+        rt_thread_mdelay(50);
 
     }            
 }

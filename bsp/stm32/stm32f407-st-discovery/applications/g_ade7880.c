@@ -390,10 +390,10 @@ void rt_hw_ade7880_IVE_get(void)
         SPIWrite4Bytes(STATUS0,IRQStautsRead0);             //write the same STATUSx content back to clear the flag and reset the IRQ line
         SPIDelay();  
 
-        PhaseAEnergy = SPIRead4Bytes(AWATTHR);		 
-        PhaseAIRMS   = SPIRead4Bytes(AIRMS);
-        PhaseAVRMS   = SPIRead4Bytes(AVRMS);
-        PhaseAPeroid = SPIRead2Bytes(APERIOD);
+        g_ade_base_parameter.PhaseAEnergy = SPIRead4Bytes(AWATTHR);		 
+        g_ade_base_parameter.PhaseAIRMS   = SPIRead4Bytes(AIRMS);
+        g_ade_base_parameter.PhaseAVRMS   = SPIRead4Bytes(AVRMS);
+        g_ade_base_parameter.PhaseAPeroid = SPIRead2Bytes(APERIOD);
 
         ADE7880_TRACE("%s PhaseAEnergy = %d,PhaseAIRMS = %d,PhaseAVRMS = %d,PhaseAPeroid = %d\n");
     }

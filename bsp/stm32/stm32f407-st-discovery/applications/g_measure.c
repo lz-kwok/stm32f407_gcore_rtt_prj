@@ -14,11 +14,14 @@
 static rt_uint8_t measure_thread_stack[RT_MANAGER_THREAD_STACK_SZ];
 
 static struct rt_messagequeue g_measure_mq;
-static rt_uint8_t measure_mq_pool[(MANAGER_MQ_MSG_SZ+sizeof(void*))*MANAGER_MQ_MAX_MSG];;
+static rt_uint8_t measure_mq_pool[(MANAGER_MQ_MSG_SZ+sizeof(void*))*MANAGER_MQ_MAX_MSG];
+MesureManager mMesureManager;
 
 static void g_measure_manager_entry(void *param)
 {
+    static rt_uint8_t g_index = 0;
     rt_err_t result = RT_EOK;
+    memset(&mMesureManager,0x0,sizeof(MesureManager));
     while (RT_TRUE)
     {
         struct hal_message msg;
@@ -86,7 +89,30 @@ static void g_measure_manager_entry(void *param)
                             g_Client_data_send(rec_buf,c_len);     
                             rt_thread_mdelay(1000); 
                         break;
+                        case 0xE0:       //自动化测试
+                            if(rec_buf[2] == 0x01){
+                                mMesureManager.autoChecktype = 1;
+                            }else{
+                                mMesureManager.autoChecktype = 0;
+                            }
+
+                            mMesureManager.autoCheckbyte = (rt_uint16_t)(((rt_uint16_t)rec_buf[3])<<8)+rec_buf[4];
+                        break;
                     }
+                }
+
+                if(msg.freecb != NULL){
+                    msg.freecb(rec_len);
+                }
+            }else if(msg.what == uart6_rx_signal){
+                rt_uint8_t err_buf[32];
+                rt_memset(err_buf,0x0,sizeof(err_buf));
+                int *err_len = (int *)msg.content;
+                rt_uint8_t r_len = g_ErrorCode_data_receive(err_buf,*err_len);
+
+
+                if(msg.freecb != NULL){
+                    msg.freecb(err_len);
                 }
             }
         }
@@ -101,11 +127,20 @@ void g_MeasureQueue_send(rt_uint8_t type, const char *content)
     struct hal_message g_msg;
     g_msg.what = type;
     g_msg.content = (void *)content;
-    g_msg.freecb = NULL;
+    g_msg.freecb = rt_free;
 
     rt_mq_send(&g_measure_mq, (void*)&g_msg, sizeof(struct hal_message));
 }
 
+rt_uint8_t g_MeasureAuto_Check_Get()
+{
+    return mMesureManager.autoChecktype;
+}
+
+rt_uint16_t g_MeasureAuto_Checkbyte_Get()
+{
+    return mMesureManager.autoCheckbyte;
+}
 
 rt_err_t g_measure_manager_init(void)
 {
