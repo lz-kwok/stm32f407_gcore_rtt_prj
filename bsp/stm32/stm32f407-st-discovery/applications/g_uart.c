@@ -12,7 +12,7 @@
 #include "g_uart.h"
 #include "g_usb_cdc.h"
 #include "g_measure.h"
-
+#include <g_ade7880.h>
 
 /* 串口接收事件标志 */
 #define UART_RX_EVENT (1 << 0)
@@ -220,7 +220,7 @@ void uart_thread_entry(void* parameter)
     {   
         // gScan_Error_Code(g_uart6,scan_code,4);
         rt_hw_ade7880_IVE_get();
-        rt_thread_mdelay(50);
+        rt_thread_mdelay(100);
 
     }            
 }
