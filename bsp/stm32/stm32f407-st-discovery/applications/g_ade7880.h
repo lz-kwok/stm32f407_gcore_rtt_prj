@@ -38,7 +38,7 @@ typedef struct {
 	rt_uint32_t PhaseAVRMS;
 	rt_uint32_t PhaseAPeroid;
 }ade_base_parameter;
-ade_base_parameter g_ade_base_parameter;
+extern ade_base_parameter g_ade_base_parameter;
 
 #define   AIGAIN	           		0x4380
 #define   AVGAIN	          		0x4381

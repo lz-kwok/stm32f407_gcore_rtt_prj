@@ -41,6 +41,8 @@ rt_uint32_t PhaseAVRMS   = 0;
 rt_uint16_t PhaseAPeroid = 0;
 rt_uint32_t PhaseAAngle  = 0;
 
+ade_base_parameter g_ade_base_parameter;
+
 rt_uint8_t HARFlag = 0;         //谐波
 
 static struct rt_spi_device spi_dev_ade7880;    // SPI设备ssd1351对象 

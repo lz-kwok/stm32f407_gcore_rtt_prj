@@ -280,7 +280,7 @@ int main(void)
                             g_usb_pin_control(Load_3kW_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             SourceeffectStep = 1;
                         }else if(SourceeffectStep == 1){
@@ -296,7 +296,7 @@ int main(void)
                                 wishVolt = 110.0;
                                 memset(dpsp_cmd,0x0,32);
                                 rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_vol_set);
+                                g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(1000);
                             }
                         }else if(SourceeffectStep == 2){
@@ -312,7 +312,7 @@ int main(void)
                                 wishVolt = 137.5;
                                 memset(dpsp_cmd,0x0,32);
                                 rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_vol_set);
+                                g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(1000);
                             }
                         }else if(SourceeffectStep == 3){
@@ -369,14 +369,14 @@ int main(void)
                             g_usb_pin_control(Load_3kW_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             UndervoltageStep = 1;
                         }if(UndervoltageStep == 1){
                             dpsp_vol_set -= 1.0;
                             memset(dpsp_cmd,0x0,32);
                             rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             gScan_Error_Code();
 
@@ -409,14 +409,14 @@ int main(void)
                             g_usb_pin_control(Load_3kW_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             OvervoltageStep = 1;
                         }if(OvervoltageStep == 1){
                             dpsp_vol_set -= 1.0;
                             memset(dpsp_cmd,0x0,32);
                             rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             gScan_Error_Code();
 
@@ -450,7 +450,7 @@ int main(void)
                             g_usb_pin_control(Load_Over_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             OverLoadStep = 1;
                         }if(OverLoadStep == 1){
@@ -508,22 +508,23 @@ int main(void)
                     cur_f = (float)(((float)vol_in)/100*70.82 - 1.98);
                     if(hal_GetBit(mycheckbits,ShortCircuit) == 1){
                         static rt_uint8_t ShortCircuitStep = 0;
-                        if(ShortCircuit == 0){
+                        if(ShortCircuitStep == 0){
                             dpsp_vol_set = 110.0;
                             memset(dpsp_cmd,0x0,32);
                             rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);   
-                            g_uart_sendto_Dpsp(dpsp_vol_set);
+                            g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
-                            ShortCircuit = 1;
-                        }if(ShortCircuit == 1){
+                            ShortCircuitStep = 1;
+                        }if(ShortCircuitStep == 1){
                             rt_thread_mdelay(1000);
                             rt_thread_mdelay(1000);    
                             g_usb_pin_control(Load_Short_Circuit_ON);
 
-                            ShortCircuit = 2;
-                        }if(ShortCircuit == 2){
+                            ShortCircuitStep = 2;
+                        }if(ShortCircuitStep == 2){
+                            ShortCircuitStep = 0;
                             rt_thread_mdelay(1000);
                             gScan_Error_Code();     
 

@@ -114,7 +114,7 @@ void gScan_Error_Code(void)
         len = rt_device_write(g_uart6, 0, scan_code, 4);
         timeout++;
     }
-    while (len != cmd_len && timeout < 500);
+    while (len != 4 && timeout < 500);
 }
 
 rt_uint8_t gGet_Error_Code(rt_device_t dev,rt_uint8_t *buf,rt_uint8_t len)
