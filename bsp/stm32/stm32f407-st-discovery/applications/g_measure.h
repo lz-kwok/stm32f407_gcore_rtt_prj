@@ -25,6 +25,7 @@ extern "C" {
 typedef struct {
 	rt_uint8_t autoChecktype;
 	rt_uint16_t autoCheckbyte;
+	rt_uint8_t ErrorCode;
 }MesureManager;
 
 typedef enum{
@@ -40,6 +41,7 @@ typedef enum{
 void g_MeasureQueue_send(rt_uint8_t type, const char *content);
 rt_uint8_t g_MeasureAuto_Check_Get();
 rt_uint16_t g_MeasureAuto_Checkbyte_Get();
+rt_uint8_t g_MeasureError_Code_Get();
 rt_err_t g_measure_manager_init(void);
 
 #ifdef __cplusplus

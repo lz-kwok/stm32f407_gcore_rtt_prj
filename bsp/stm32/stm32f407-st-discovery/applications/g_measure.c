@@ -142,6 +142,11 @@ rt_uint16_t g_MeasureAuto_Checkbyte_Get()
     return mMesureManager.autoCheckbyte;
 }
 
+rt_uint8_t g_MeasureError_Code_Get()
+{
+    return mMesureManager.ErrorCode;
+}
+
 rt_err_t g_measure_manager_init(void)
 {
     static struct rt_thread measure_thread;
