@@ -218,7 +218,6 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        // gScan_Error_Code(g_uart6,scan_code,4);
         rt_hw_ade7880_IVE_get();
         rt_thread_mdelay(100);
 

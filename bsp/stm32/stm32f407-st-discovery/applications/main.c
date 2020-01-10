@@ -189,7 +189,7 @@ int main(void)
                             if(dpsp_vol_set > 65){
                                 dpsp_vol_set -= 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -197,7 +197,7 @@ int main(void)
                             if(dpsp_vol_set < 150){
                                 dpsp_vol_set += 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -243,7 +243,7 @@ int main(void)
                             if(dpsp_vol_set > 65){
                                 dpsp_vol_set -= 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -251,7 +251,7 @@ int main(void)
                             if(dpsp_vol_set < 150){
                                 dpsp_vol_set += 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -276,7 +276,7 @@ int main(void)
                             dpsp_vol_set = 77.0;
                             wishVolt = 77.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_usb_pin_control(Load_3kW_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
@@ -295,7 +295,7 @@ int main(void)
                                 dpsp_vol_set = 110.0;
                                 wishVolt = 110.0;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(1000);
                             }
@@ -311,7 +311,7 @@ int main(void)
                                 dpsp_vol_set = 137.5;
                                 wishVolt = 137.5;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(1000);
                             }
@@ -334,7 +334,7 @@ int main(void)
                             if(dpsp_vol_set > 65){
                                 dpsp_vol_set -= 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -342,7 +342,7 @@ int main(void)
                             if(dpsp_vol_set < 150){
                                 dpsp_vol_set += 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -365,7 +365,7 @@ int main(void)
                         if(UndervoltageStep == 0){
                             dpsp_vol_set = 110.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_usb_pin_control(Load_3kW_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
@@ -375,7 +375,7 @@ int main(void)
                         }if(UndervoltageStep == 1){
                             dpsp_vol_set -= 1.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             gScan_Error_Code();
@@ -405,7 +405,7 @@ int main(void)
                         if(OvervoltageStep == 0){
                             dpsp_vol_set = 110.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_usb_pin_control(Load_3kW_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
@@ -415,7 +415,7 @@ int main(void)
                         }if(OvervoltageStep == 1){
                             dpsp_vol_set -= 1.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_uart_sendto_Dpsp(dpsp_cmd);
                             rt_thread_mdelay(1000);
                             gScan_Error_Code();
@@ -446,7 +446,7 @@ int main(void)
                         if(OverLoadStep == 0){
                             dpsp_vol_set = 110.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_usb_pin_control(Load_Over_ON);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
@@ -479,7 +479,7 @@ int main(void)
                             if(dpsp_vol_set > 65){
                                 dpsp_vol_set -= 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -487,7 +487,7 @@ int main(void)
                             if(dpsp_vol_set < 150){
                                 dpsp_vol_set += 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -511,7 +511,7 @@ int main(void)
                         if(ShortCircuitStep == 0){
                             dpsp_vol_set = 110.0;
                             memset(dpsp_cmd,0x0,32);
-                            rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);   
                             g_uart_sendto_Dpsp(dpsp_cmd);
@@ -537,7 +537,7 @@ int main(void)
                             if(dpsp_vol_set > 65){
                                 dpsp_vol_set -= 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }
@@ -545,7 +545,7 @@ int main(void)
                             if(dpsp_vol_set < 150){
                                 dpsp_vol_set += 0.1;
                                 memset(dpsp_cmd,0x0,32);
-                                rt_sprintf(dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
                                 g_uart_sendto_Dpsp(dpsp_cmd);
                                 rt_thread_mdelay(500);
                             }

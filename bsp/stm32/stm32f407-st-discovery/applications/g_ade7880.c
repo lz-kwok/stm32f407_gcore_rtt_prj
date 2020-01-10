@@ -41,6 +41,9 @@ rt_uint32_t PhaseAVRMS   = 0;
 rt_uint16_t PhaseAPeroid = 0;
 rt_uint32_t PhaseAAngle  = 0;
 
+rt_uint32_t HAR_Cache[50];
+rt_uint32_t HAR_Index[50];
+
 ade_base_parameter g_ade_base_parameter;
 
 rt_uint8_t HARFlag = 0;         //谐波
@@ -291,8 +294,14 @@ void rt_hw_ade7880_reg_cfg(void)
 
 	SPIWrite1Byte(LCYCMODE,0x0F);			  //phase A is selected for zero cross
 	SPIWrite2Bytes(LINECYC,0x0064);
+	SPIWrite4Bytes(HXIRMSOS,0x00000000); 
+	SPIWrite4Bytes(HYIRMSOS,0x00000000); 
+	SPIWrite4Bytes(HZIRMSOS,0x00000000); 
+	SPIWrite4Bytes(HXVRMSOS,0x00000000); 
+	SPIWrite4Bytes(HYVRMSOS,0x00000000); 
+	SPIWrite4Bytes(HXVRMSOS,0x00000000); 
 
-    SPIWrite2Bytes(HCONFIG,0x0009);           // 750ms
+    SPIWrite2Bytes(HZVRMSOS,0x0009);           // 750ms
 
 	SPIWrite4Bytes(MASK0,0x00080020);	      //line cycle interrupt enable
 	SPIWrite4Bytes(MASK1,0x00000000);   
@@ -396,13 +405,19 @@ void rt_hw_ade7880_IVE_get(void)
         g_ade_base_parameter.PhaseAIRMS   = SPIRead4Bytes(AIRMS);
         g_ade_base_parameter.PhaseAVRMS   = SPIRead4Bytes(AVRMS);
         g_ade_base_parameter.PhaseAPeroid = SPIRead2Bytes(APERIOD);
-
+		SPIDelay(); 
         ADE7880_TRACE("%s PhaseAEnergy = %d,PhaseAIRMS = %d,PhaseAVRMS = %d,PhaseAPeroid = %d\n");
     }
 }
 
 void rt_hw_ade7880_HAR_get(void)
 {
+	static rt_uint8_t m = 0;
+	static rt_uint8_t har_step = 0;
+	static rt_uint8_t write_index = 0;
+	static rt_uint8_t read_index = 0;
+	static rt_uint8_t scada_start = 1;
+	static rt_uint8_t scada_num = 0;
     if(HARFlag == 1){
         HARFlag = 0;
 
@@ -411,11 +426,62 @@ void rt_hw_ade7880_HAR_get(void)
         SPIWrite4Bytes(STATUS0,IRQStautsRead0);             //write the same STATUSx content back to clear the flag and reset the IRQ line
         SPIDelay();  
 
-        PhaseAEnergy = SPIRead4Bytes(AWATTHR);		 
-        PhaseAIRMS   = SPIRead4Bytes(AIRMS);
-        PhaseAVRMS   = SPIRead4Bytes(AVRMS);
-        PhaseAPeroid = SPIRead2Bytes(APERIOD);
+		if(har_step == 0){
+			har_step = 1;
+			rt_memset(HAR_Cache,0x0,50);
+			for(m=0;m<30;m++){
+				HAR_Index[m] = m + 1;
+			}
 
-        ADE7880_TRACE("%s PhaseAEnergy = %d,PhaseAIRMS = %d,PhaseAVRMS = %d,PhaseAPeroid = %d\n");
+		}else if(har_step == 1){
+			if(scada_start == 1){
+				scada_start = 0;
+				for(m=0;m<3;m++){
+					SPIWrite4Bytes(HXVRMS,HAR_Index[write_index]);
+					SPIDelay();  
+					write_index++
+					SPIWrite4Bytes(HYVRMS,HAR_Index[write_index]); 
+					SPIDelay();  
+					write_index++
+					SPIWrite4Bytes(HZVRMS,HAR_Index[write_index]); 
+					SPIDelay();  
+					write_index++
+					if(write_index == 30){
+						write_index = 0;
+					}
+				}
+				har_step = 2;
+			}
+		}else if(har_step == 2){
+			for(m=0;m<3;m++){
+				// HAR_Cache[0] = SPIRead4Bytes(FVRMS);
+				// read_index ++;
+				// SPIDelay(); 
+				HAR_Cache[read_index] = SPIRead4Bytes(HXVRMS);
+				SPIDelay();  
+				read_index ++;
+				HAR_Cache[read_index] = SPIRead4Bytes(HYVRMS); 
+				SPIDelay(); 
+				read_index ++; 
+				HAR_Cache[read_index] = SPIWrite4Bytes(HZVRMS); 
+				SPIDelay();  
+				read_index ++;
+			}
+
+		
+			scada_num++;
+			if(scada_num == 10){
+				scada_num = 0;
+				har_step = 1;
+				scada_start = 1;
+
+				if(read_index == 30){
+					read_index = 0;
+					har_step = 3;
+				}
+			}
+		}else if(har_step == 3){
+			//计算
+		}
     }
 }
