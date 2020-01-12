@@ -14,8 +14,8 @@
 extern "C" {
 #endif
 
-#define RT_CONFIG_USB_CDC               0
-#define RT_CONFIG_UART3                 1
+#define RT_CONFIG_USB_CDC               1
+#define RT_CONFIG_UART3                 0
 
 #define RT_MANAGER_THREAD_STACK_SZ      1024
 #define RT_MANAGER_THREAD_PRIO          5
@@ -39,9 +39,9 @@ typedef enum{
 #define hal_GetBit(data, offset)      ((data >> offset) &0x01) //获取某位
 
 void g_MeasureQueue_send(rt_uint8_t type, const char *content);
-rt_uint8_t g_MeasureAuto_Check_Get();
-rt_uint16_t g_MeasureAuto_Checkbyte_Get();
-rt_uint8_t g_MeasureError_Code_Get();
+rt_uint8_t g_MeasureAuto_Check_Get(void);
+rt_uint16_t g_MeasureAuto_Checkbyte_Get(void);
+rt_uint8_t g_MeasureError_Code_Get(void);
 rt_err_t g_measure_manager_init(void);
 
 #ifdef __cplusplus

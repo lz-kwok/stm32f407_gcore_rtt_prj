@@ -48,7 +48,8 @@ static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
             g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
         }
         
-    }else if(dev == g_uart6){
+    }
+    else if(dev == g_uart6){
         if(size == uart6_int_num){
             g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
         }
@@ -111,7 +112,7 @@ void gScan_Error_Code(void)
     rt_uint32_t timeout = 0;
     do
     {
-        len = rt_device_write(g_uart6, 0, scan_code, 4);
+        len = rt_device_write(g_uart3, 0, scan_code, 4);
         timeout++;
     }
     while (len != 4 && timeout < 500);
@@ -218,8 +219,9 @@ void uart_thread_entry(void* parameter)
     
     while (1)
     {   
-        rt_hw_ade7880_IVE_get();
-        rt_thread_mdelay(100);
+    //    rt_hw_ade7880_IVE_get();
+        gScan_Error_Code();    
+        rt_thread_mdelay(2000);
 
     }            
 }

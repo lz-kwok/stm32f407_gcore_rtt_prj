@@ -98,6 +98,9 @@ static void g_measure_manager_entry(void *param)
 
                             mMesureManager.autoCheckbyte = (rt_uint16_t)(((rt_uint16_t)rec_buf[3])<<8)+rec_buf[4];
                         break;
+                        case 0x5F:
+                            mMesureManager.ErrorCode = rec_buf[2];
+                        break;
                     }
                 }
 
@@ -109,7 +112,7 @@ static void g_measure_manager_entry(void *param)
                 rt_memset(err_buf,0x0,sizeof(err_buf));
                 int *err_len = (int *)msg.content;
                 rt_uint8_t r_len = g_ErrorCode_data_receive(err_buf,*err_len);
-
+                mMesureManager.ErrorCode = err_buf[2];
 
                 if(msg.freecb != NULL){
                     msg.freecb(err_len);
@@ -127,22 +130,22 @@ void g_MeasureQueue_send(rt_uint8_t type, const char *content)
     struct hal_message g_msg;
     g_msg.what = type;
     g_msg.content = (void *)content;
-    g_msg.freecb = rt_free;
+    g_msg.freecb = NULL;
 
     rt_mq_send(&g_measure_mq, (void*)&g_msg, sizeof(struct hal_message));
 }
 
-rt_uint8_t g_MeasureAuto_Check_Get()
+rt_uint8_t g_MeasureAuto_Check_Get(void)
 {
     return mMesureManager.autoChecktype;
 }
 
-rt_uint16_t g_MeasureAuto_Checkbyte_Get()
+rt_uint16_t g_MeasureAuto_Checkbyte_Get(void)
 {
     return mMesureManager.autoCheckbyte;
 }
 
-rt_uint8_t g_MeasureError_Code_Get()
+rt_uint8_t g_MeasureError_Code_Get(void)
 {
     return mMesureManager.ErrorCode;
 }

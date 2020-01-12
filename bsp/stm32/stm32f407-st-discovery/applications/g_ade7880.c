@@ -163,7 +163,6 @@ static void SPIWrite4Bytes(rt_uint16_t address , rt_uint32_t sendtemp)
 
 static void SPIWrite1Byte(rt_uint16_t address , rt_uint8_t sendtemp)
 {
-	char i;
 	rt_uint8_t szTxData[7];
 	szTxData[0] = 0x00; 	
 	szTxData[1] = (rt_uint8_t)(address>>8);
@@ -350,9 +349,12 @@ void rt_hw_ade7880_irq_init()
 int rt_hw_ade7880_int(void)
 {
 	rt_hw_ade7880_spi_config();
-	rt_hw_ade7880_pm_select(PSM0);
-	rt_hw_ade7880_reset();
+//	rt_hw_ade7880_reset();
+    rt_hw_ade7880_pm_select(PSM0);
+    rt_thread_mdelay(100);
+
 	rt_hw_ade7880_spi_setup();
+	rt_thread_mdelay(1000);
 	for(;;){
 		rt_thread_mdelay(100);
 
@@ -406,6 +408,11 @@ void rt_hw_ade7880_IVE_get(void)
         g_ade_base_parameter.PhaseAVRMS   = SPIRead4Bytes(AVRMS);
         g_ade_base_parameter.PhaseAPeroid = SPIRead2Bytes(APERIOD);
 		SPIDelay(); 
+		mask0Buf[0] = (g_ade_base_parameter.PhaseAVRMS&0xff000000) >> 24;
+		mask0Buf[1] = (g_ade_base_parameter.PhaseAVRMS&0xff0000) >> 16;
+		mask0Buf[2] = (g_ade_base_parameter.PhaseAVRMS&0xff00) >> 8;
+		mask0Buf[3] = g_ade_base_parameter.PhaseAVRMS&0xff;
+		g_Client_data_send(mask0Buf,4);
         ADE7880_TRACE("%s PhaseAEnergy = %d,PhaseAIRMS = %d,PhaseAVRMS = %d,PhaseAPeroid = %d\n");
     }
 }
@@ -439,13 +446,13 @@ void rt_hw_ade7880_HAR_get(void)
 				for(m=0;m<3;m++){
 					SPIWrite4Bytes(HXVRMS,HAR_Index[write_index]);
 					SPIDelay();  
-					write_index++
+					write_index++;
 					SPIWrite4Bytes(HYVRMS,HAR_Index[write_index]); 
 					SPIDelay();  
-					write_index++
+					write_index++;
 					SPIWrite4Bytes(HZVRMS,HAR_Index[write_index]); 
 					SPIDelay();  
-					write_index++
+					write_index++;
 					if(write_index == 30){
 						write_index = 0;
 					}
@@ -463,7 +470,7 @@ void rt_hw_ade7880_HAR_get(void)
 				HAR_Cache[read_index] = SPIRead4Bytes(HYVRMS); 
 				SPIDelay(); 
 				read_index ++; 
-				HAR_Cache[read_index] = SPIWrite4Bytes(HZVRMS); 
+				HAR_Cache[read_index] = SPIRead4Bytes(HZVRMS); 
 				SPIDelay();  
 				read_index ++;
 			}
@@ -485,3 +492,10 @@ void rt_hw_ade7880_HAR_get(void)
 		}
     }
 }
+
+
+
+
+
+
+

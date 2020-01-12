@@ -18,6 +18,7 @@ static rt_device_t vcom_dev = RT_NULL;
 static rt_uint8_t recvLen = 0;
 rt_uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
 static rt_uint8_t reSend;
+rt_uint8_t MesureType = 0;
 
 static void usb_cdc_entry(void *param)
 {
@@ -121,6 +122,8 @@ static void g_usb_timerout_callback(void *parameter)
 #if RT_CONFIG_UART3
         g_Client_data_send(sendBuf, 10);
 #endif
+        rt_thread_mdelay(1000);
+        rt_pin_write(MCU_KOUT2, PIN_HIGH);
      }
 }
 
@@ -185,10 +188,16 @@ INIT_DEVICE_EXPORT(g_usb_pin_status_init);
 
 void g_usb_pin_control(relaycmd cmd)
 {
-    if(cmd == Load_1_5kW_ON){
+    if(cmd == Load_None_ON){
+        MesureType = 1;
+    }else if(cmd == Load_None_OFF){
+        MesureType = 0;
+    }else if(cmd == Load_1_5kW_ON){
+        MesureType = 2;
         rt_pin_write(MCU_KOUT8, PIN_HIGH);
         rt_pin_write(MCU_KOUT9, PIN_HIGH);
     }else if(cmd == Load_1_5kW_OFF){
+        MesureType = 0;
         rt_pin_write(MCU_KOUT8, PIN_LOW);
         rt_pin_write(MCU_KOUT9, PIN_LOW);
     }else if(cmd == Load_3kW_ON){
@@ -220,7 +229,7 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == Load_Short_Circuit_OFF){
         rt_pin_write(MCU_KOUT12, PIN_LOW);
     }else if(cmd == Load_Precharge_ON){
-        rt_pin_write(MCU_KOUT5, PIN_HIGH);
+        rt_pin_write(MCU_KOUT14, PIN_HIGH);
     }else if(cmd == Load_Precharge_OFF){
         rt_pin_write(MCU_KOUT5, PIN_LOW);
     }else if(cmd == Load_Main_ON){
@@ -230,7 +239,8 @@ void g_usb_pin_control(relaycmd cmd)
         }
     }else if(cmd == Load_Main_OFF){
         rt_pin_write(MCU_KOUT3, PIN_LOW);
-        rt_pin_write(MCU_KOUT5, PIN_LOW);
+        rt_pin_write(MCU_KOUT14, PIN_LOW);
+        rt_pin_write(MCU_KOUT2, PIN_LOW);
     }
     
 }

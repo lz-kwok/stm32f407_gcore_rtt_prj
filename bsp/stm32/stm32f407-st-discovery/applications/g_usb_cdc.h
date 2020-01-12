@@ -69,9 +69,13 @@ typedef enum  {
   DC_Power_OFF,
   DC_Power_ON,
 
+  Load_None_ON = 0x20,
+  Load_None_OFF = 0x21
+
 } relaycmd;
 
 extern rt_uint8_t sendBuf[10];
+extern rt_uint8_t MesureType;
 
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len);
 rt_err_t g_usb_cdc_init(void);

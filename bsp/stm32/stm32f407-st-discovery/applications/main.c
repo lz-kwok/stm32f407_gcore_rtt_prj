@@ -48,46 +48,90 @@ rt_adc_device_t adc_dev;
 rt_uint16_t adc_val[10];
 rt_uint32_t filter1_buf[FILTER_N + 1];
 rt_uint32_t filter2_buf[FILTER_N + 1];
-
+rt_uint32_t filter3_buf[FILTER_N + 1];
+rt_uint32_t filter4_buf[FILTER_N + 1];
 
 
 rt_uint32_t Filter(adc_channel channel) 
 {
     int i;
     static int bufpreIN = 0;
+    static int bufprecur_in = 0;
+    static int bufprevol_out = 0;
+    static int bufprecur_out = 0;
     rt_uint32_t filter1_sum = 0;
     rt_uint32_t filter2_sum = 0;
+    rt_uint32_t filter3_sum = 0;
+    rt_uint32_t filter4_sum = 0;
 
     if(channel == channel5){
         if(bufpreIN == 0){
             bufpreIN = 1;
             for(i=0;i<FILTER_N;i++){
                 filter1_buf[i] = rt_adc_read(adc_dev, 5);
+                rt_thread_mdelay(1);
             }
         }
         
         filter1_buf[FILTER_N] = rt_adc_read(adc_dev, 5);
+        rt_thread_mdelay(1);
         for(i = 0; i < FILTER_N; i++){
             filter1_buf[i] = filter1_buf[i + 1];  //所有数据左移，低位仍掉
             filter1_sum += filter1_buf[i];
         }
-
+        bufpreIN = 0;
         return (filter1_sum / FILTER_N);
     }else if(channel == channel6){
-        if(bufpreIN == 0){
-            bufpreIN = 1;
+        if(bufprecur_in == 0){
+            bufprecur_in = 1;
             for(i=0;i<FILTER_N;i++){
                 filter2_buf[i] = rt_adc_read(adc_dev, 6);
+                rt_thread_mdelay(1);
             }
         }
+        
         filter2_buf[FILTER_N] = rt_adc_read(adc_dev, 6);
+        rt_thread_mdelay(1);
         for(i = 0; i < FILTER_N; i++){
             filter2_buf[i] = filter2_buf[i + 1];  //所有数据左移，低位仍掉
             filter2_sum += filter2_buf[i];
         }
+        return (filter2_sum / FILTER_N);
+    }else if(channel == channel7){
+        if(bufprevol_out == 0){
+            bufprevol_out = 1;
+            for(i=0;i<FILTER_N;i++){
+                filter3_buf[i] = rt_adc_read(adc_dev, 7);
+                rt_thread_mdelay(1);
+            }
+        }
+        
+        filter3_buf[FILTER_N] = rt_adc_read(adc_dev, 7);
+        rt_thread_mdelay(1);
+        for(i = 0; i < FILTER_N; i++){
+            filter3_buf[i] = filter3_buf[i + 1];  //所有数据左移，低位仍掉
+            filter3_sum += filter3_buf[i];
+        }
+        return (filter3_sum / FILTER_N);
+    }else if(channel == channel8){
+        if(bufprecur_out == 0){
+            bufprecur_out = 1;
+            for(i=0;i<FILTER_N;i++){
+                filter4_buf[i] = rt_adc_read(adc_dev, 8);
+                rt_thread_mdelay(1);
+            }
+        }
+        filter4_buf[FILTER_N] = rt_adc_read(adc_dev, 8);
+        rt_thread_mdelay(1);
+        for(i = 0; i < FILTER_N; i++){
+            filter4_buf[i] = filter4_buf[i + 1];  //所有数据左移，低位仍掉
+            filter4_sum += filter4_buf[i];
+        }
 
-       return (filter2_sum / FILTER_N);
+       return (filter4_sum / FILTER_N);
     }
+    
+    return 0;
 }
 
 
@@ -108,25 +152,32 @@ int main(void)
     static int index = 0;
     static rt_uint16_t mycheckbits = 0;
     rt_uint16_t vol_in,cur_in;
+    rt_uint16_t vol_in_dc,cur_in_dc;
+    rt_uint16_t vol_in_ac,cur_in_ac;
     static float dpsp_vol_set = 0.0;
     rt_uint8_t dpsp_cmd[32];
     memset(dpsp_cmd,0x0,32);
-    rt_uint8_t data_adc[8] = {0x0d,0xf9,0x00,0x00,0x00,0x00,0x00,0x0d};
+    rt_uint8_t data_adc[10] = {0x0d,0xf9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
     rt_uint8_t spreadshowBuf[12] = {0x0d,0xe0,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
     g_measure_manager_init();
+#if (RT_CONFIG_USB_CDC)
     g_usb_cdc_init();
+#endif
     g_uart_init();
-    rt_hw_ade7880_int();
+    // rt_hw_ade7880_int();
     rt_thread_mdelay(1000);
 
     adc_dev = (rt_adc_device_t)rt_device_find(ADC_DEV_NAME);
     rt_adc_enable(adc_dev, 5);
     rt_adc_enable(adc_dev, 6);
+    rt_adc_enable(adc_dev, 7);
+    rt_adc_enable(adc_dev, 8);
     
     while (RT_TRUE)
     {   
+#if 0
         if(g_MeasureAuto_Check_Get() == 1){
             if(mycheckbits == 0){
                 mycheckbits = g_MeasureAuto_Checkbyte_Get();
@@ -558,25 +609,46 @@ int main(void)
 
             }
         }
+#endif
 
-
-        // adc_val[0] = Filter(channel5);
-        // adc_val[1] = Filter(channel6);
-        // rt_thread_mdelay(100);
-        // rt_hw_ade7880_IVE_get();
-        // index ++;
-        // if(index == 10){
-        //     index = 0;
-        //     vol_in = adc_val[0]*330/4096;     //扩大100倍
-        //     cur_in = adc_val[1]*330/4096;     //扩大10倍
+        adc_val[0] = Filter(channel5);
+        adc_val[1] = Filter(channel6);
+        adc_val[2] = Filter(channel7);
+        adc_val[3] = Filter(channel8);
+        rt_thread_mdelay(50);
+        index ++;
+        if(index == 20){
+            index = 0;
+            vol_in_dc = adc_val[0]*330/4096;     //扩大100倍
+            cur_in_dc = adc_val[1]*330/4096;     //扩大10倍
+            vol_in_ac = adc_val[2]*330/4096;     //扩大100倍
+            cur_in_ac = adc_val[3]*330/4096;     //扩大10倍
             
-        //     float vol_f = (float)(((float)vol_in)/100*70.82 - 1.98)*100;
-        //     data_adc[2] = ((rt_uint16_t)vol_f)/100;
-        //     data_adc[3] = ((rt_uint16_t)vol_f)%100;
-        //     data_adc[4] = cur_in/100;
-        //     data_adc[5] = cur_in%100;
-        //     // g_usb_cdc_sendData(data_adc, 8);
-        // }
+            float vol_f = (float)(((float)vol_in_dc)/100*79.42 - 2.407)*100;
+            float cur_f = (float)(((float)cur_in_dc)/100*18.086 - 0.102)*100;
+            data_adc[1] = 0xf9;
+            data_adc[2] = ((rt_uint16_t)vol_f)/100;
+            data_adc[3] = ((rt_uint16_t)vol_f)%100;
+            data_adc[4] = ((rt_uint16_t)cur_f)/100;
+            data_adc[5] = ((rt_uint16_t)cur_f)%100;
+            data_adc[6] = MesureType;
+            data_adc[7] = g_MeasureError_Code_Get();
+#if (RT_CONFIG_USB_CDC)
+            g_usb_cdc_sendData(data_adc, 10);
+            data_adc[1] = 0xf8;
+            data_adc[2] = cur_in_ac/100;
+            data_adc[3] = cur_in_ac/100;
+            data_adc[4] = vol_in_ac/100;
+            data_adc[5] = vol_in_ac%100;
+            data_adc[6] = MesureType;
+            data_adc[7] = g_MeasureError_Code_Get();
+            rt_thread_mdelay(100);
+            g_usb_cdc_sendData(data_adc, 10);
+#endif
+#if (RT_CONFIG_UART3)
+            g_Client_data_send(data_adc, 8);
+#endif
+        }
 
         
     }
