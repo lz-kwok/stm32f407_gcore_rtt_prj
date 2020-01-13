@@ -79,7 +79,6 @@ rt_uint32_t Filter(adc_channel channel)
             filter1_buf[i] = filter1_buf[i + 1];  //所有数据左移，低位仍掉
             filter1_sum += filter1_buf[i];
         }
-        bufpreIN = 0;
         return (filter1_sum / FILTER_N);
     }else if(channel == channel6){
         if(bufprecur_in == 0){
@@ -158,7 +157,6 @@ int main(void)
     rt_uint8_t dpsp_cmd[32];
     memset(dpsp_cmd,0x0,32);
     rt_uint8_t data_measure[32] = {0x0d,0xf9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
-    rt_uint8_t spreadshowBuf[12] = {0x0d,0xe0,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
     g_measure_manager_init();
