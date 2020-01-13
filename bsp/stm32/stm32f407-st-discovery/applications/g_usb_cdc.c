@@ -79,10 +79,13 @@ static void usb_cdc_entry(void *param)
                         if(dataRecv[2] == 0x01){
                             g_uart_sendto_Dpsp("VOLT 70.0");
                         }else if(dataRecv[2] == 0x02){
+                            mMesureManager.step = 5;
                             g_uart_sendto_Dpsp("VOLT 77.0");
                         }else if(dataRecv[2] == 0x03){
+                            mMesureManager.step = 6;
                             g_uart_sendto_Dpsp("VOLT 110.0");
                         }else if(dataRecv[2] == 0x04){
+                            mMesureManager.step = 7;
                             g_uart_sendto_Dpsp("VOLT 137.5");
                         }else if(dataRecv[2] == 0x05){
                             g_uart_sendto_Dpsp("VOLT 142.0");
@@ -189,21 +192,53 @@ INIT_DEVICE_EXPORT(g_usb_pin_status_init);
 void g_usb_pin_control(relaycmd cmd)
 {
     if(cmd == Load_None_ON){
-        MesureType = 1;
+        mMesureManager.step = 1;
+        rt_pin_write(MCU_KOUT7, PIN_LOW);
+        rt_pin_write(MCU_KOUT8, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+        rt_pin_write(MCU_KOUT10, PIN_LOW);
+        rt_pin_write(MCU_KOUT11, PIN_LOW);
+        rt_pin_write(MCU_KOUT13, PIN_LOW);
     }else if(cmd == Load_None_OFF){
-        MesureType = 0;
+        mMesureManager.step = 0;
     }else if(cmd == Load_1_5kW_ON){
-        MesureType = 2;
+        mMesureManager.step = 2;
         rt_pin_write(MCU_KOUT8, PIN_HIGH);
         rt_pin_write(MCU_KOUT9, PIN_HIGH);
     }else if(cmd == Load_1_5kW_OFF){
-        MesureType = 0;
+        mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT8, PIN_LOW);
         rt_pin_write(MCU_KOUT9, PIN_LOW);
     }else if(cmd == Load_3kW_ON){
+        mMesureManager.step = 3;
         rt_pin_write(MCU_KOUT11, PIN_HIGH);
         rt_pin_write(MCU_KOUT9, PIN_HIGH);
     }else if(cmd == Load_3kW_OFF){
+        mMesureManager.step = 0;
+        rt_pin_write(MCU_KOUT11, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+    }else if(cmd == Efficiency_ON){
+        mMesureManager.step = 4;
+        rt_pin_write(MCU_KOUT11, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+    }else if(cmd == Efficiency_OFF){
+        mMesureManager.step = 0;
+        rt_pin_write(MCU_KOUT11, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+    }else if(cmd == Undervoltage_ON){
+        mMesureManager.step = 8;
+        rt_pin_write(MCU_KOUT11, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+    }else if(cmd == Undervoltage_OFF){
+        mMesureManager.step = 0;
+        rt_pin_write(MCU_KOUT11, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+    }else if(cmd == Overvoltage_ON){
+        mMesureManager.step = 9;
+        rt_pin_write(MCU_KOUT11, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+    }else if(cmd == Overvoltage_OFF){
+        mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT11, PIN_LOW);
         rt_pin_write(MCU_KOUT9, PIN_LOW);
     }else if(cmd == Load_Reverse_ON){
@@ -211,6 +246,7 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == Load_Reverse_OFF){
         rt_pin_write(MCU_KOUT4, PIN_LOW);
     }else if(cmd == Load_Over_ON){
+         mMesureManager.step = 10;
         rt_pin_write(MCU_KOUT13, PIN_HIGH);
         rt_pin_write(MCU_KOUT7, PIN_HIGH);
         // rt_pin_write(MCU_KOUT8, PIN_HIGH);
@@ -218,6 +254,7 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT10, PIN_HIGH);
         rt_pin_write(MCU_KOUT11, PIN_HIGH);
     }else if(cmd == Load_Over_OFF){
+         mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT13, PIN_LOW);
         rt_pin_write(MCU_KOUT7, PIN_LOW);
         // rt_pin_write(MCU_KOUT8, PIN_LOW);
@@ -225,8 +262,10 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT10, PIN_LOW);
         rt_pin_write(MCU_KOUT11, PIN_LOW);
     }else if(cmd == Load_Short_Circuit_ON){
+         mMesureManager.step = 12;
         rt_pin_write(MCU_KOUT12, PIN_HIGH);
     }else if(cmd == Load_Short_Circuit_OFF){
+         mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT12, PIN_LOW);
     }else if(cmd == Load_Precharge_ON){
         rt_pin_write(MCU_KOUT14, PIN_HIGH);
@@ -241,6 +280,10 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT3, PIN_LOW);
         rt_pin_write(MCU_KOUT14, PIN_LOW);
         rt_pin_write(MCU_KOUT2, PIN_LOW);
+    }else if(cmd == StartSig_ON){
+
+    }else if(cmd == StartSig_ON){
+
     }
     
 }

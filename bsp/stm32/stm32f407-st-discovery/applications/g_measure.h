@@ -25,8 +25,17 @@ extern "C" {
 typedef struct {
 	rt_uint8_t autoChecktype;
 	rt_uint16_t autoCheckbyte;
+	rt_uint8_t step;
+	float dc_voltage;
+	float dc_current;
+	float ac_voltage;
+	float ac_current;
+	float ac_freq;
+	float out_efficiency;
+	float delta_voltage_percent;
 	rt_uint8_t ErrorCode;
 }MesureManager;
+extern MesureManager mMesureManager;
 
 typedef enum{
 	uart3_rx_signal = 0,

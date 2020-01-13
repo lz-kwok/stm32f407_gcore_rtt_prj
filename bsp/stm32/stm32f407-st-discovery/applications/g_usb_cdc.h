@@ -70,7 +70,15 @@ typedef enum  {
   DC_Power_ON,
 
   Load_None_ON = 0x20,
-  Load_None_OFF = 0x21
+  Load_None_OFF = 0x21,
+  Undervoltage_ON = 0x22,
+  Undervoltage_OFF = 0x23,
+  Overvoltage_ON = 0x24,
+  Overvoltage_OFF = 0x25,
+  StartSig_ON = 0x26,
+  StartSig_OFF = 0x27,
+  Efficiency_ON = 0x28,
+  Efficiency_OFF = 0x29,
 
 } relaycmd;
 

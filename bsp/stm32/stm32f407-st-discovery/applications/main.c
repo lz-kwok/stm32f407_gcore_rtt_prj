@@ -55,7 +55,7 @@ rt_uint32_t filter4_buf[FILTER_N + 1];
 rt_uint32_t Filter(adc_channel channel) 
 {
     int i;
-    static int bufpreIN = 0;
+    static int bufprevol_in = 0;
     static int bufprecur_in = 0;
     static int bufprevol_out = 0;
     static int bufprecur_out = 0;
@@ -65,8 +65,8 @@ rt_uint32_t Filter(adc_channel channel)
     rt_uint32_t filter4_sum = 0;
 
     if(channel == channel5){
-        if(bufpreIN == 0){
-            bufpreIN = 1;
+        if(bufprevol_in == 0){
+            bufprevol_in = 1;
             for(i=0;i<FILTER_N;i++){
                 filter1_buf[i] = rt_adc_read(adc_dev, 5);
                 rt_thread_mdelay(1);
@@ -157,7 +157,7 @@ int main(void)
     static float dpsp_vol_set = 0.0;
     rt_uint8_t dpsp_cmd[32];
     memset(dpsp_cmd,0x0,32);
-    rt_uint8_t data_adc[10] = {0x0d,0xf9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
+    rt_uint8_t data_measure[32] = {0x0d,0xf9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
     rt_uint8_t spreadshowBuf[12] = {0x0d,0xe0,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
@@ -616,37 +616,40 @@ int main(void)
         adc_val[2] = Filter(channel7);
         adc_val[3] = Filter(channel8);
         rt_thread_mdelay(50);
+        vol_in_dc = adc_val[0]*330/4096;     //扩大100倍
+        cur_in_dc = adc_val[1]*330/4096;     //扩大10倍
+        vol_in_ac = adc_val[2]*330/4096;     //扩大100倍
+        cur_in_ac = adc_val[3]*330/4096;     //扩大10倍
+        
+        mMesureManager.dc_voltage = (float)(((float)vol_in_dc)/100*79.42 - 2.407)*100;
+        mMesureManager.dc_current = (float)(((float)cur_in_dc)/100*18.086 - 0.102)*100;
+        data_measure[0] = 0x0d;
+        data_measure[1] = 0xe0;
+        data_measure[2] = mMesureManager.step;
+        data_measure[3] = ((rt_uint16_t)mMesureManager.dc_voltage)/100;
+        data_measure[4] = ((rt_uint16_t)mMesureManager.dc_voltage)%100;
+        data_measure[5] = ((rt_uint16_t)mMesureManager.dc_current)/100;
+        data_measure[6] = ((rt_uint16_t)mMesureManager.dc_current)%100;
+        data_measure[7] = ((rt_uint16_t)mMesureManager.ac_voltage)/100;
+        data_measure[8] = ((rt_uint16_t)mMesureManager.ac_voltage)%100;
+        data_measure[9] = ((rt_uint16_t)mMesureManager.ac_current)/100;
+        data_measure[10] = ((rt_uint16_t)mMesureManager.ac_current)%100;
+        data_measure[11] = ((rt_uint16_t)mMesureManager.ac_freq)/100;
+        data_measure[12] = ((rt_uint16_t)mMesureManager.ac_freq)%100;
+        data_measure[13] = ((rt_uint16_t)mMesureManager.out_efficiency)/100;
+        data_measure[14] = ((rt_uint16_t)mMesureManager.out_efficiency)%100;
+        data_measure[15] = mMesureManager.ErrorCode;
+        data_measure[16] = mMesureManager.delta_voltage_percent;
+        data_measure[17] = 0x0d;
         index ++;
         if(index == 20){
             index = 0;
-            vol_in_dc = adc_val[0]*330/4096;     //扩大100倍
-            cur_in_dc = adc_val[1]*330/4096;     //扩大10倍
-            vol_in_ac = adc_val[2]*330/4096;     //扩大100倍
-            cur_in_ac = adc_val[3]*330/4096;     //扩大10倍
-            
-            float vol_f = (float)(((float)vol_in_dc)/100*79.42 - 2.407)*100;
-            float cur_f = (float)(((float)cur_in_dc)/100*18.086 - 0.102)*100;
-            data_adc[1] = 0xf9;
-            data_adc[2] = ((rt_uint16_t)vol_f)/100;
-            data_adc[3] = ((rt_uint16_t)vol_f)%100;
-            data_adc[4] = ((rt_uint16_t)cur_f)/100;
-            data_adc[5] = ((rt_uint16_t)cur_f)%100;
-            data_adc[6] = MesureType;
-            data_adc[7] = g_MeasureError_Code_Get();
+
 #if (RT_CONFIG_USB_CDC)
-            g_usb_cdc_sendData(data_adc, 10);
-            data_adc[1] = 0xf8;
-            data_adc[2] = cur_in_ac/100;
-            data_adc[3] = cur_in_ac/100;
-            data_adc[4] = vol_in_ac/100;
-            data_adc[5] = vol_in_ac%100;
-            data_adc[6] = MesureType;
-            data_adc[7] = g_MeasureError_Code_Get();
-            rt_thread_mdelay(100);
-            g_usb_cdc_sendData(data_adc, 10);
+            g_usb_cdc_sendData(data_measure, 18);
 #endif
 #if (RT_CONFIG_UART3)
-            g_Client_data_send(data_adc, 8);
+            g_Client_data_send(data_measure, 16);
 #endif
         }
 
