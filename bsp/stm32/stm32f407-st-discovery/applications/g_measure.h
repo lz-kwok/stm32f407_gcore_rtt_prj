@@ -28,9 +28,11 @@ typedef struct {
 	rt_uint8_t step;
 	float dc_voltage;
 	float dc_current;
-	float ac_voltage;
-	float ac_current;
-	float ac_freq;
+	float dc_energy;
+	rt_uint16_t ac_voltage;
+	rt_uint16_t ac_current;
+	rt_uint16_t ac_freq;
+	float ac_energy;
 	float out_efficiency;
 	float delta_voltage_percent;
 	rt_uint8_t ErrorCode;
@@ -46,6 +48,8 @@ typedef enum{
 #define hal_SetBit(data, offset)      data |= 1 << offset      //置位某位为1
 #define hal_ResetBit(data, offset)    data &= ~(1 << offset)   //复位某位为0
 #define hal_GetBit(data, offset)      ((data >> offset) &0x01) //获取某位
+#define UshortToByte1(data)     	  ((uint8_t *)(&data))[0]  //获取ushort类型数据低位(low 8 bit)高位(high 8 bit)
+#define UshortToByte0(data)     	  ((uint8_t *)(&data))[1]  //获取ushort类型数据
 
 void g_MeasureQueue_send(rt_uint8_t type, const char *content);
 rt_uint8_t g_MeasureAuto_Check_Get(void);

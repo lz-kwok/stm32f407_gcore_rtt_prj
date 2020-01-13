@@ -623,6 +623,11 @@ int main(void)
         
         mMesureManager.dc_voltage = (float)(((float)vol_in_dc)/100*79.42 - 2.407)*100;
         mMesureManager.dc_current = (float)(((float)cur_in_dc)/100*18.086 - 0.102)*100;
+        mMesureManager.dc_energy = mMesureManager.dc_voltage*mMesureManager.dc_current;
+        if(mMesureManager.dc_energy != 0.0){
+            mMesureManager.out_efficiency = (mMesureManager.ac_energy/mMesureManager.dc_energy)*100;
+        }
+        
         data_measure[0] = 0x0d;
         data_measure[1] = 0xe0;
         data_measure[2] = mMesureManager.step;

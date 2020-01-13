@@ -108,15 +108,15 @@ static void g_measure_manager_entry(void *param)
                     msg.freecb(rec_len);
                 }
             }else if(msg.what == uart6_rx_signal){
-                rt_uint8_t err_buf[32];
-                rt_memset(err_buf,0x0,sizeof(err_buf));
-                int *err_len = (int *)msg.content;
-                rt_uint8_t r_len = g_ErrorCode_data_receive(err_buf,*err_len);
-                mMesureManager.ErrorCode = err_buf[2];
+                // rt_uint8_t err_buf[32];
+                // rt_memset(err_buf,0x0,sizeof(err_buf));
+                // int *err_len = (int *)msg.content;
+                // rt_uint8_t r_len = g_ErrorCode_data_receive(err_buf,*err_len);
+                // mMesureManager.ErrorCode = err_buf[2];
 
-                if(msg.freecb != NULL){
-                    msg.freecb(err_len);
-                }
+                // if(msg.freecb != NULL){
+                //     msg.freecb(err_len);
+                // }
             }
         }
 
