@@ -153,9 +153,9 @@ int main(void)
     rt_uint16_t vol_in,cur_in;
     rt_uint16_t vol_in_dc,cur_in_dc;
     rt_uint16_t vol_in_ac,cur_in_ac;
-    static float dpsp_vol_set = 0.0;
-    rt_uint8_t dpsp_cmd[32];
-    memset(dpsp_cmd,0x0,32);
+    // static float dpsp_vol_set = 0.0;
+    // rt_uint8_t dpsp_cmd[32];
+    // memset(dpsp_cmd,0x0,32);
     rt_uint8_t data_measure[32] = {0x0d,0xf9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0d};
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);

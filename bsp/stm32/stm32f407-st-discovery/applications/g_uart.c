@@ -263,6 +263,7 @@ void g_uart_sendto_Dpsp(const rt_uint8_t *cmd)
 void uart_thread_entry(void* parameter)
 {    
     rt_uint8_t uart_recv[64] = {0};
+    rt_uint8_t CRC_Result[2];
     rt_uint8_t uart_recv_num = 0;
     rt_uint16_t CalcuResult;
     rt_uint32_t im_vol,im_cur,im_pow,im_energy,im_pf,im_frq,im_co2;
@@ -304,8 +305,7 @@ void uart_thread_entry(void* parameter)
         gInquiry_AC_data();    
         rt_thread_mdelay(200);
 
-        uint8_t CRC_Result[2];
-        uart_recv_num = rt_device_read(g_uart3, 0, uart_recv, 20);
+        uart_recv_num = rt_device_read(g_uart3, 0, uart_recv, 64);
 		CalcuResult = Crc16(uart_recv,uart_recv_num-2);
 		CRC_Result[0] = (uint8_t)((CalcuResult & 0xFF00) >> 8);
 		CRC_Result[1] = (uint8_t)(CalcuResult & 0xFF);

@@ -24,6 +24,9 @@ static void usb_cdc_entry(void *param)
 {
     static rt_uint8_t u_index = 0;
     rt_uint8_t dataRecv[32];
+    static float dpsp_vol_set = 110.0;
+    rt_uint8_t dpsp_cmd[32];
+    memset(dpsp_cmd,0x0,32);
     vcom_dev = rt_device_find("vcom");
    
     if (vcom_dev)
@@ -97,6 +100,47 @@ static void usb_cdc_entry(void *param)
             }
         }
         
+
+        if(mMesureManager.step == 8){   //欠压
+            dpsp_vol_set -= 1.0;
+            memset(dpsp_cmd,0x0,32);
+            if(dpsp_vol_set < 60.0){
+                dpsp_vol_set = 60.0;
+            }
+            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+            g_uart_sendto_Dpsp(dpsp_cmd);
+            rt_thread_mdelay(500);
+            //赋值故障码
+            if((mMesureManager.ac_voltage/10000) < 200){
+
+            }
+        }else if(mMesureManager.step == 9){     //过压
+            dpsp_vol_set += 1.0;
+            if(dpsp_vol_set > 155.0){
+                dpsp_vol_set = 155.0;
+            }
+            memset(dpsp_cmd,0x0,32);
+            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+            g_uart_sendto_Dpsp(dpsp_cmd);
+            rt_thread_mdelay(500);
+            //赋值故障码
+            if((mMesureManager.ac_voltage/10000) < 200){
+                
+            }
+        }else if(mMesureManager.step == 10){    //过载
+            if((mMesureManager.ac_voltage/10000) < 200){
+                
+            }
+        }else if(mMesureManager.step == 12){    //短路
+            if((mMesureManager.ac_voltage/10000) < 200){
+                
+            }
+        }else if(mMesureManager.step == 0){ 
+            if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
+                g_uart_sendto_Dpsp("VOLT 110.0");
+                rt_thread_mdelay(500);
+            }
+        }
 
         rt_thread_mdelay(20);
     }
