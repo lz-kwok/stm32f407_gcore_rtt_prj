@@ -137,7 +137,7 @@ static void usb_cdc_entry(void *param)
             }
         }else if(mMesureManager.step == 0){ 
             if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
-                g_uart_sendto_Dpsp("VOLT 110.0");
+                //g_uart_sendto_Dpsp("VOLT 110.0");
                 rt_thread_mdelay(500);
             }
         }

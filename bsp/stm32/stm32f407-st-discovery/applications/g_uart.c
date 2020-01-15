@@ -71,16 +71,17 @@ const rt_uint8_t inquiry_code[20] = {0xA1,0x5f,0x00,0xfe};
 const rt_uint8_t uart3_int_num = 8;
 const rt_uint8_t uart6_int_num = 8;
 
-static struct serial_configure dpsp_useconfig = {
-    BAUD_RATE_115200,
-    DATA_BITS_8,
-    STOP_BITS_1,
-    PARITY_ODD,
-    BIT_ORDER_MSB,
-    NRZ_NORMAL,
-    128,
-    0
-};
+#define IM1281B           \
+{                                          \
+    BAUD_RATE_4800,   /* 115200 bits/s */  \
+    DATA_BITS_8,      /* 8 databits */     \
+    STOP_BITS_1,      /* 1 stopbit */      \
+    PARITY_NONE,      /* No parity  */     \
+    BIT_ORDER_LSB,    /* LSB first sent */ \
+    NRZ_NORMAL,       /* Normal mode */    \
+    RT_SERIAL_RB_BUFSZ, /* Buffer size */  \
+    0                                      \
+}
     
 /* 回调函数 */
 static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
@@ -235,12 +236,16 @@ rt_device_t uart_open(const char *name)
             return RT_NULL;
         }
 
-//        res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&dpsp_useconfig);
-//        if (res != RT_EOK)
-//        {
-//            rt_kprintf("control %s device error.%d\n",name,res);
-//            return RT_NULL;
-//        }
+        if(strcmp(name,"uart3") == 0){
+            struct serial_configure config3 = IM1281B;
+            res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&config3);
+            if (res != RT_EOK)
+            {
+                rt_kprintf("control %s device error.%d\n",name,res);
+                return RT_NULL;
+            }
+        }
+        
     }
     else
     {
