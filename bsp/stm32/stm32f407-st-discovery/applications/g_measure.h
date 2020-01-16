@@ -23,6 +23,7 @@ extern "C" {
 #define MANAGER_MQ_MAX_MSG              8
 
 typedef struct {
+	rt_uint8_t dpsp1000_Onoff;
 	rt_uint8_t autoChecktype;
 	rt_uint16_t autoCheckbyte;
 	rt_uint8_t step;

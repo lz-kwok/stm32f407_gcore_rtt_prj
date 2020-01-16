@@ -70,10 +70,12 @@ static void usb_cdc_entry(void *param)
                     break;
                     case 0xFB:       //开启直流电源
                         if(dataRecv[2] == DC_Power_ON){
+                            mMesureManager.dpsp1000_Onoff = 1;
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
                             rt_thread_mdelay(1000);
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
                         }else if(dataRecv[2] == DC_Power_OFF){
+                            mMesureManager.dpsp1000_Onoff = 0;
                             g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");
                         }                  
                         g_usb_cdc_sendData(dataRecv,recvLen);      
@@ -135,9 +137,9 @@ static void usb_cdc_entry(void *param)
             if((mMesureManager.ac_voltage/10000) < 200){
                 
             }
-        }else if(mMesureManager.step == 0){ 
+        }else if((mMesureManager.step == 0)&&(mMesureManager.dpsp1000_Onoff == 1)){ 
             if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
-                //g_uart_sendto_Dpsp("VOLT 110.0");
+                g_uart_sendto_Dpsp("VOLT 110.0");
                 rt_thread_mdelay(500);
             }
         }
