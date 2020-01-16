@@ -19,6 +19,7 @@ static rt_uint8_t recvLen = 0;
 rt_uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
 static rt_uint8_t reSend;
 rt_uint8_t MesureType = 0;
+static rt_uint8_t vol_set = 0;
 
 static void usb_cdc_entry(void *param)
 {
@@ -104,38 +105,49 @@ static void usb_cdc_entry(void *param)
         
 
         if(mMesureManager.step == 8){   //欠压
-            dpsp_vol_set -= 1.0;
-            memset(dpsp_cmd,0x0,32);
-            if(dpsp_vol_set < 60.0){
-                dpsp_vol_set = 60.0;
+            if(vol_set == 1){
+                dpsp_vol_set -= 1.0;
+                memset(dpsp_cmd,0x0,32);
+                if(dpsp_vol_set < 60.0){
+                    dpsp_vol_set = 60.0;
+                }
+                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                g_uart_sendto_Dpsp(dpsp_cmd);
             }
-            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-            g_uart_sendto_Dpsp(dpsp_cmd);
+            
             rt_thread_mdelay(500);
             //赋值故障码
             if((mMesureManager.ac_voltage/10000) < 200){
-
+                vol_set = 0;
+                mMesureManager.ErrorCode = 0x02;
             }
         }else if(mMesureManager.step == 9){     //过压
-            dpsp_vol_set += 1.0;
-            if(dpsp_vol_set > 155.0){
-                dpsp_vol_set = 155.0;
+            if(vol_set == 1){
+                dpsp_vol_set += 1.0;
+                if(dpsp_vol_set > 155.0){
+                    dpsp_vol_set = 155.0;
+                }
+                memset(dpsp_cmd,0x0,32);
+                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
+                g_uart_sendto_Dpsp(dpsp_cmd);
             }
-            memset(dpsp_cmd,0x0,32);
-            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-            g_uart_sendto_Dpsp(dpsp_cmd);
             rt_thread_mdelay(500);
             //赋值故障码
             if((mMesureManager.ac_voltage/10000) < 200){
-                
+                vol_set = 0;
+                mMesureManager.ErrorCode = 0x03;
             }
         }else if(mMesureManager.step == 10){    //过载
             if((mMesureManager.ac_voltage/10000) < 200){
-                
+                mMesureManager.ErrorCode = 0x06;
+            }
+        }else if(mMesureManager.step == 11){    //过流
+            if((mMesureManager.ac_voltage/10000) < 200){
+                mMesureManager.ErrorCode = 0x05;
             }
         }else if(mMesureManager.step == 12){    //短路
             if((mMesureManager.ac_voltage/10000) < 200){
-                
+                mMesureManager.ErrorCode = 0x05;
             }
         }else if((mMesureManager.step == 0)&&(mMesureManager.dpsp1000_Onoff == 1)){ 
             if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
@@ -161,8 +173,8 @@ rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len)
 
 static void g_usb_timerout_callback(void *parameter)
 {
-     rt_pin_write(MCU_KOUT3, PIN_HIGH);        //打开主接触器
      if(reSend == 1){
+         rt_pin_write(MCU_KOUT3, PIN_HIGH);        //打开主接触器
          reSend = 0;
          sendBuf[2] = Load_Main_ON;
 #if RT_CONFIG_USB_CDC
@@ -173,6 +185,8 @@ static void g_usb_timerout_callback(void *parameter)
 #endif
         rt_thread_mdelay(1000);
         rt_pin_write(MCU_KOUT2, PIN_HIGH);
+
+
      }
 }
 
@@ -273,6 +287,7 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT9, PIN_LOW);
     }else if(cmd == Undervoltage_ON){
         mMesureManager.step = 8;
+        vol_set = 1;
         rt_pin_write(MCU_KOUT11, PIN_HIGH);
         rt_pin_write(MCU_KOUT9, PIN_HIGH);
     }else if(cmd == Undervoltage_OFF){
@@ -281,6 +296,7 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT9, PIN_LOW);
     }else if(cmd == Overvoltage_ON){
         mMesureManager.step = 9;
+        vol_set = 1;
         rt_pin_write(MCU_KOUT11, PIN_HIGH);
         rt_pin_write(MCU_KOUT9, PIN_HIGH);
     }else if(cmd == Overvoltage_OFF){
@@ -316,20 +332,36 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == Load_Precharge_ON){
         rt_pin_write(MCU_KOUT14, PIN_HIGH);
     }else if(cmd == Load_Precharge_OFF){
-        rt_pin_write(MCU_KOUT5, PIN_LOW);
+        rt_pin_write(MCU_KOUT14, PIN_LOW);
     }else if(cmd == Load_Main_ON){
-        rt_pin_write(MCU_KOUT5, PIN_HIGH);
+        rt_pin_write(MCU_KOUT14, PIN_HIGH);
         if(u_timer != RT_NULL){
             rt_timer_start(u_timer);
         }
     }else if(cmd == Load_Main_OFF){
-        rt_pin_write(MCU_KOUT3, PIN_LOW);
-        rt_pin_write(MCU_KOUT14, PIN_LOW);
-        rt_pin_write(MCU_KOUT2, PIN_LOW);
+        rt_pin_write(MCU_KOUT2, PIN_LOW);   //启动信号
+        rt_pin_write(MCU_KOUT3, PIN_LOW);   //主接触器
+        rt_pin_write(MCU_KOUT14, PIN_LOW);  //预充电
     }else if(cmd == StartSig_ON){
 
     }else if(cmd == StartSig_ON){
 
+    }else if(cmd == OverCurrent_ON){
+        mMesureManager.step = 11;
+    }else if(cmd == OverCurrent_OFF){
+        mMesureManager.step = 0;
+    }else if(cmd == StartTime_ON){
+        mMesureManager.step = 13;
+        rt_pin_write(MCU_KOUT8, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);      //1.5kw
+        rt_thread_mdelay(1000);
+        rt_pin_write(MCU_KOUT14, PIN_HIGH);     //预充电
+        g_usb_set_timer(RT_TRUE);
+        if(u_timer != RT_NULL){
+            rt_timer_start(u_timer);
+        }
+    }else if(cmd == StartTime_OFF){
+        mMesureManager.step = 0;
     }
     
 }

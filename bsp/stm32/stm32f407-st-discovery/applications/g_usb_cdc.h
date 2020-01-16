@@ -79,7 +79,10 @@ typedef enum  {
   StartSig_OFF = 0x27,
   Efficiency_ON = 0x28,
   Efficiency_OFF = 0x29,
-
+  OverCurrent_ON = 0x30,
+  OverCurrent_OFF = 0x31,
+  StartTime_ON = 0x32,
+  StartTime_OFF = 0x33,
 } relaycmd;
 
 extern rt_uint8_t sendBuf[10];
