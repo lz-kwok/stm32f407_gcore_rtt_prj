@@ -20,5 +20,6 @@ rt_uint8_t g_Client_data_receive(rt_uint8_t *buf,rt_uint8_t len);
 rt_uint8_t g_ErrorCode_data_receive(rt_uint8_t *buf,rt_uint8_t len);
 void g_Client_data_send(rt_uint8_t *buf,rt_uint8_t len);
 void gScan_Error_Code(void);
+void gInquiry_AC_data(void);
 
 #endif

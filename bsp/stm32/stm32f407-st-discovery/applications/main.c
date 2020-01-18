@@ -647,7 +647,7 @@ int main(void)
         index ++;
         if(index == 20){
             index = 0;
-
+            gInquiry_AC_data();
 #if (RT_CONFIG_USB_CDC)
             g_usb_cdc_sendData(data_measure, 18);
 #endif

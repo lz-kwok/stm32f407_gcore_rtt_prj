@@ -67,9 +67,11 @@ static rt_device_t g_uart6 = RT_NULL;
 const char *uart6_name = "uart6";
 
 const rt_uint8_t scan_code[4] = {0xA1,0x5f,0x00,0xfe};
-const rt_uint8_t inquiry_code[20] = {0xA1,0x5f,0x00,0xfe};
-const rt_uint8_t uart3_int_num = 8;
+const rt_uint8_t inquiry_code[20] = {0x01,0x03,0x00,0x48,0x00,0x08,0xc4,0x1a};
+const rt_uint8_t uart3_int_num = 37;
 const rt_uint8_t uart6_int_num = 8;
+rt_uint8_t recv_flag = 0;
+static struct rt_semaphore rx_sem;
 
 #define IM1281B           \
 {                                          \
@@ -87,16 +89,18 @@ const rt_uint8_t uart6_int_num = 8;
 static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
 {
     if(dev == g_uart3){
-        if(size == uart3_int_num){
-            g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
-        }
+        rt_sem_release(&rx_sem);
+//         if(size == uart3_int_num){
+// //            g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
+//             // recv_flag = 1;
+//         }
         
     }
-    else if(dev == g_uart6){
-        if(size == uart6_int_num){
-            g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
-        }
-    }
+//    else if(dev == g_uart6){
+//        if(size == uart6_int_num){
+//            g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
+//        }
+//    }
     
     return RT_EOK;
 }
@@ -203,10 +207,10 @@ void gInquiry_AC_data(void)
     rt_uint32_t timeout = 0;
     do
     {
-        len = rt_device_write(g_uart3, 0, inquiry_code, 4);
+        len = rt_device_write(g_uart3, 0, inquiry_code, 8);
         timeout++;
     }
-    while (len != 4 && timeout < 500);
+    while (len != 8 && timeout < 500);
 }
 
 rt_device_t uart_open(const char *name)
@@ -218,21 +222,20 @@ rt_device_t uart_open(const char *name)
     /* 查找到设备后将其打开 */
     if (dev != RT_NULL)
     {   
-       
-        res = rt_device_set_rx_indicate(dev, uart_rx_callback);
-        /* 检查返回值 */
-        if (res != RT_EOK)
-        {
-            rt_kprintf("set %s rx indicate error.%d\n",name,res);
-            return RT_NULL;
-        }
-
         /* 打开设备，以可读写、中断方式 */
         res = rt_device_open(dev, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX );       
         /* 检查返回值 */
         if (res != RT_EOK)
         {
             rt_kprintf("open %s device error.%d\n",name,res);
+            return RT_NULL;
+        }
+        
+        res = rt_device_set_rx_indicate(dev, uart_rx_callback);
+        /* 检查返回值 */
+        if (res != RT_EOK)
+        {
+            rt_kprintf("set %s rx indicate error.%d\n",name,res);
             return RT_NULL;
         }
 
@@ -274,6 +277,9 @@ void uart_thread_entry(void* parameter)
     rt_uint32_t im_vol,im_cur,im_pow,im_energy,im_pf,im_frq,im_co2;
     rt_uint32_t im_vol_max = 0;
     rt_uint32_t im_vol_min = 380*10000;
+    rt_uint8_t data_recv;
+
+    rt_sem_init(&rx_sem, "rx_sem", 0, RT_IPC_FLAG_FIFO);
     /* 打开串口 */
     g_uart1 = uart_open(uart1_name);                //dpsp
     if(g_uart1 == RT_NULL){
@@ -304,39 +310,42 @@ void uart_thread_entry(void* parameter)
     }
        
     rt_kprintf("%s\n",__func__);
-    
+    memset(uart_recv,0x0,64);
     while (1)
     {   
-        gInquiry_AC_data();    
-        rt_thread_mdelay(200);
-
-        uart_recv_num = rt_device_read(g_uart3, 0, uart_recv, 64);
-		CalcuResult = Crc16(uart_recv,uart_recv_num-2);
-		CRC_Result[0] = (uint8_t)((CalcuResult & 0xFF00) >> 8);
-		CRC_Result[1] = (uint8_t)(CalcuResult & 0xFF);
-		if((uart_recv[uart_recv_num-2] == CRC_Result[0]) && (uart_recv[uart_recv_num-1] == CRC_Result[1]))   //判断数据接收是否存在异常
-		{
-            im_vol = (((rt_uint32_t)(uart_recv[3]))<<24)|(((rt_uint32_t)(uart_recv[4]))<<16)|(((rt_uint32_t)(uart_recv[5]))<<8)|uart_recv[6];
-            mMesureManager.ac_voltage = (rt_uint16_t)(im_vol/100);
-            im_cur = (((rt_uint32_t)(uart_recv[7]))<<24)|(((rt_uint32_t)(uart_recv[8]))<<16)|(((rt_uint32_t)(uart_recv[9]))<<8)|uart_recv[10]; 
-            mMesureManager.ac_current = (rt_uint16_t)(im_cur/100);
-            im_pow = (((rt_uint32_t)(uart_recv[11]))<<24)|(((rt_uint32_t)(uart_recv[12]))<<16)|(((rt_uint32_t)(uart_recv[13]))<<8)|uart_recv[14]; 
-            mMesureManager.ac_energy = (float)(((float)im_pow)/100);
-            im_energy = (((rt_uint32_t)(uart_recv[15]))<<24)|(((rt_uint32_t)(uart_recv[16]))<<16)|(((rt_uint32_t)(uart_recv[17]))<<8)|uart_recv[18]; 
-            im_pf = (((rt_uint32_t)(uart_recv[19]))<<24)|(((rt_uint32_t)(uart_recv[20]))<<16)|(((rt_uint32_t)(uart_recv[21]))<<8)|uart_recv[22]; 
-            im_co2 = (((rt_uint32_t)(uart_recv[23]))<<24)|(((rt_uint32_t)(uart_recv[24]))<<16)|(((rt_uint32_t)(uart_recv[25]))<<8)|uart_recv[26]; 
-            im_frq = (((rt_uint32_t)(uart_recv[23]))<<31)|(((rt_uint32_t)(uart_recv[32]))<<16)|(((rt_uint32_t)(uart_recv[33]))<<8)|uart_recv[34]; 
-            mMesureManager.ac_freq = (rt_uint16_t)(im_frq/100);
-
-            if(im_vol > im_vol_max){
-                im_vol_max = im_vol;
-            }
-            if(im_vol_min > im_vol){
-                im_vol_min = im_vol;
-            }
-            mMesureManager.delta_voltage_percent = im_vol_max-im_vol_min;
+        while (rt_device_read(g_uart3, -1, &data_recv, 1) != 1){
+            rt_sem_take(&rx_sem, RT_WAITING_FOREVER);
         }
-        rt_thread_mdelay(800);
+        uart_recv[uart_recv_num++] = data_recv;
+        if(uart_recv_num == 37){
+            CalcuResult = Crc16(uart_recv,uart_recv_num-2);
+            CRC_Result[0] = (uint8_t)((CalcuResult & 0xFF00) >> 8);
+            CRC_Result[1] = (uint8_t)(CalcuResult & 0xFF);
+            if((uart_recv[uart_recv_num-2] == CRC_Result[0]) && (uart_recv[uart_recv_num-1] == CRC_Result[1]))   //判断数据接收是否存在异常
+            {
+                im_vol = (((rt_uint32_t)(uart_recv[3]))<<24)|(((rt_uint32_t)(uart_recv[4]))<<16)|(((rt_uint32_t)(uart_recv[5]))<<8)|uart_recv[6];
+                mMesureManager.ac_voltage = (rt_uint16_t)(im_vol/100);
+                im_cur = (((rt_uint32_t)(uart_recv[7]))<<24)|(((rt_uint32_t)(uart_recv[8]))<<16)|(((rt_uint32_t)(uart_recv[9]))<<8)|uart_recv[10]; 
+                mMesureManager.ac_current = (rt_uint16_t)(im_cur/100);
+                im_pow = (((rt_uint32_t)(uart_recv[11]))<<24)|(((rt_uint32_t)(uart_recv[12]))<<16)|(((rt_uint32_t)(uart_recv[13]))<<8)|uart_recv[14]; 
+                mMesureManager.ac_energy = (float)(((float)im_pow)/100);
+                im_energy = (((rt_uint32_t)(uart_recv[15]))<<24)|(((rt_uint32_t)(uart_recv[16]))<<16)|(((rt_uint32_t)(uart_recv[17]))<<8)|uart_recv[18]; 
+                im_pf = (((rt_uint32_t)(uart_recv[19]))<<24)|(((rt_uint32_t)(uart_recv[20]))<<16)|(((rt_uint32_t)(uart_recv[21]))<<8)|uart_recv[22]; 
+                im_co2 = (((rt_uint32_t)(uart_recv[23]))<<24)|(((rt_uint32_t)(uart_recv[24]))<<16)|(((rt_uint32_t)(uart_recv[25]))<<8)|uart_recv[26]; 
+                im_frq = (((rt_uint32_t)(uart_recv[23]))<<31)|(((rt_uint32_t)(uart_recv[32]))<<16)|(((rt_uint32_t)(uart_recv[33]))<<8)|uart_recv[34]; 
+                mMesureManager.ac_freq = (rt_uint16_t)(im_frq/100);
+
+                if(im_vol > im_vol_max){
+                    im_vol_max = im_vol;
+                }
+                if(im_vol_min > im_vol){
+                    im_vol_min = im_vol;
+                }
+                mMesureManager.delta_voltage_percent = im_vol_max-im_vol_min;
+            }
+            uart_recv_num = 0;
+            memset(uart_recv,0x0,64);
+        }
     }            
 }
 
