@@ -75,7 +75,19 @@ static struct rt_semaphore rx_sem;
 
 #define IM1281B           \
 {                                          \
-    BAUD_RATE_4800,   /* 115200 bits/s */  \
+    BAUD_RATE_4800,   /* 4800 bits/s */  \
+    DATA_BITS_8,      /* 8 databits */     \
+    STOP_BITS_1,      /* 1 stopbit */      \
+    PARITY_NONE,      /* No parity  */     \
+    BIT_ORDER_LSB,    /* LSB first sent */ \
+    NRZ_NORMAL,       /* Normal mode */    \
+    RT_SERIAL_RB_BUFSZ, /* Buffer size */  \
+    0                                      \
+}
+
+#define TN19002           \
+{                                          \
+    BAUD_RATE_9600,   /* 4800 bits/s */  \
     DATA_BITS_8,      /* 8 databits */     \
     STOP_BITS_1,      /* 1 stopbit */      \
     PARITY_NONE,      /* No parity  */     \
@@ -89,18 +101,13 @@ static struct rt_semaphore rx_sem;
 static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
 {
     if(dev == g_uart3){
-        rt_sem_release(&rx_sem);
-//         if(size == uart3_int_num){
-// //            g_MeasureQueue_send(uart3_rx_signal,(void *)&uart3_int_num);
-//             // recv_flag = 1;
-//         }
-        
+        rt_sem_release(&rx_sem);        
     }
-//    else if(dev == g_uart6){
-//        if(size == uart6_int_num){
-//            g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
-//        }
-//    }
+    else if(dev == g_uart6){
+        if(size == uart6_int_num){
+            g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
+        }
+    }
     
     return RT_EOK;
 }
@@ -123,7 +130,7 @@ rt_uint8_t g_ErrorCode_data_receive(rt_uint8_t *buf,rt_uint8_t len)
 
     // rt_uint8_t recv_size = (sizeof(buf) - 1)>len ? len : (sizeof(buf) - 1);
 
-    ch = rt_device_read(g_uart3, 0, buf, len);
+    ch = rt_device_read(g_uart6, 0, buf, len);
 
     return ch;
 }
@@ -159,7 +166,7 @@ void gScan_Error_Code(void)
     rt_uint32_t timeout = 0;
     do
     {
-        len = rt_device_write(g_uart3, 0, scan_code, 4);
+        len = rt_device_write(g_uart6, 0, scan_code, 4);
         timeout++;
     }
     while (len != 4 && timeout < 500);
@@ -240,15 +247,22 @@ rt_device_t uart_open(const char *name)
         }
 
         if(strcmp(name,"uart3") == 0){
-            struct serial_configure config3 = IM1281B;
-            res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&config3);
+            struct serial_configure uart_config = IM1281B;
+            res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&uart_config);
+            if (res != RT_EOK)
+            {
+                rt_kprintf("control %s device error.%d\n",name,res);
+                return RT_NULL;
+            }
+        }else if(strcmp(name,"uart6") == 0){
+            struct serial_configure uart_config = TN19002;
+            res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&uart_config);
             if (res != RT_EOK)
             {
                 rt_kprintf("control %s device error.%d\n",name,res);
                 return RT_NULL;
             }
         }
-        
     }
     else
     {
@@ -345,6 +359,7 @@ void uart_thread_entry(void* parameter)
             }
             uart_recv_num = 0;
             memset(uart_recv,0x0,64);
+            gScan_Error_Code();
         }
     }            
 }
