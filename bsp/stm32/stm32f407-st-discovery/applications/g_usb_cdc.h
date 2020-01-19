@@ -83,6 +83,7 @@ typedef enum  {
   OverCurrent_OFF = 0x31,
   StartTime_ON = 0x32,
   StartTime_OFF = 0x33,
+  AllContactor_OFF = 0x34
 } relaycmd;
 
 extern rt_uint8_t sendBuf[10];
@@ -90,6 +91,7 @@ extern rt_uint8_t MesureType;
 
 rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len);
 rt_err_t g_usb_cdc_init(void);
+void g_usb_IO_status_scan(void);
 void g_usb_pin_control(relaycmd cmd);
 void g_usb_control_softstart(rt_bool_t start);
 void g_usb_set_timer(rt_bool_t sta);

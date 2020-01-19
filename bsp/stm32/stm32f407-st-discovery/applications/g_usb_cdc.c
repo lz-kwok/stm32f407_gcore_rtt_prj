@@ -18,6 +18,7 @@ static rt_device_t vcom_dev = RT_NULL;
 static rt_uint8_t recvLen = 0;
 rt_uint8_t sendBuf[10] = {0x0D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0D};
 static rt_uint8_t reSend;
+static rt_uint8_t startTimeindex = 0;
 rt_uint8_t MesureType = 0;
 static rt_uint8_t vol_set = 0;
 
@@ -149,6 +150,14 @@ static void usb_cdc_entry(void *param)
             if((mMesureManager.ac_voltage/10000) < 200){
                 mMesureManager.ErrorCode = 0x05;
             }
+        }else if(mMesureManager.step == 13){    //启动时间
+            if(startTimeindex == 2){
+                startTimeindex = 0;
+                mMesureManager.step = 0;
+                if((mMesureManager.ac_voltage/10000) > 200){
+                    hal_ResetBit(mMesureManager.IOStatus,4);
+                }
+            }
         }else if((mMesureManager.step == 0)&&(mMesureManager.dpsp1000_Onoff == 1)){ 
             if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
                 g_uart_sendto_Dpsp("VOLT 110.0");
@@ -174,19 +183,23 @@ rt_uint8_t g_usb_cdc_sendData(rt_uint8_t* data,rt_uint8_t len)
 static void g_usb_timerout_callback(void *parameter)
 {
      if(reSend == 1){
-         rt_pin_write(MCU_KOUT3, PIN_HIGH);        //打开主接触器
-         reSend = 0;
-         sendBuf[2] = Load_Main_ON;
+        rt_pin_write(MCU_KOUT3, PIN_HIGH);        //打开主接触器
+        reSend = 0;
+        sendBuf[2] = Load_Main_ON;
 #if RT_CONFIG_USB_CDC
-         g_usb_cdc_sendData(sendBuf, 10);
+        g_usb_cdc_sendData(sendBuf, 10);
 #endif
 #if RT_CONFIG_UART3
         g_Client_data_send(sendBuf, 10);
 #endif
-        rt_thread_mdelay(1000);
         rt_pin_write(MCU_KOUT2, PIN_HIGH);
 
-
+        if(mMesureManager.step == 13){
+            if(startTimeindex < 2){
+                rt_timer_start(u_timer);
+                startTimeindex ++;
+            }
+        }
      }
 }
 
@@ -210,7 +223,7 @@ rt_err_t g_usb_cdc_init(void)
     u_timer = rt_timer_create("u_timer", 
                              g_usb_timerout_callback, 
                              RT_NULL, 
-                             3000, 
+                             5000, 
                              RT_TIMER_FLAG_ONE_SHOT|RT_TIMER_FLAG_SOFT_TIMER); 
 
     rt_thread_init(&usb_cdc_thread,
@@ -241,6 +254,7 @@ void g_usb_pin_status_init(void)
     rt_pin_mode(MCU_KOUT11,PIN_MODE_OUTPUT);
     rt_pin_mode(MCU_KOUT12,PIN_MODE_OUTPUT);
     rt_pin_mode(MCU_KOUT13,PIN_MODE_OUTPUT);
+    rt_pin_mode(MCU_KOUT14,PIN_MODE_OUTPUT);
 
     rt_pin_mode(FAULT1,PIN_MODE_INPUT);
     rt_pin_mode(FAULT2,PIN_MODE_INPUT);
@@ -248,6 +262,26 @@ void g_usb_pin_status_init(void)
 }
 INIT_DEVICE_EXPORT(g_usb_pin_status_init);
 
+void g_usb_IO_status_scan(void)
+{
+    if(rt_pin_read(FAULT1) == PIN_LOW){
+        hal_ResetBit(mMesureManager.IOStatus,1);
+    }else if(rt_pin_read(FAULT1) == PIN_HIGH){
+        hal_SetBit(mMesureManager.IOStatus,1);
+    }
+
+    if(rt_pin_read(FAULT2) == PIN_LOW){
+        hal_ResetBit(mMesureManager.IOStatus,2);
+    }else if(rt_pin_read(FAULT2) == PIN_HIGH){
+        hal_SetBit(mMesureManager.IOStatus,2);
+    }
+
+    if(rt_pin_read(FAULT3) == PIN_LOW){
+        hal_ResetBit(mMesureManager.IOStatus,3);
+    }else if(rt_pin_read(FAULT3) == PIN_HIGH){
+        hal_SetBit(mMesureManager.IOStatus,3);
+    }
+}
 
 void g_usb_pin_control(relaycmd cmd)
 {
@@ -353,17 +387,36 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == StartTime_ON){
         mMesureManager.step = 13;
         rt_pin_write(MCU_KOUT8, PIN_HIGH);
-        rt_pin_write(MCU_KOUT9, PIN_HIGH);      //1.5kw
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);      //1.5kw on
         rt_thread_mdelay(1000);
         rt_pin_write(MCU_KOUT14, PIN_HIGH);     //预充电
         g_usb_set_timer(RT_TRUE);
         if(u_timer != RT_NULL){
             rt_timer_start(u_timer);
         }
+        hal_SetBit(mMesureManager.IOStatus,4);
     }else if(cmd == StartTime_OFF){
+        rt_pin_write(MCU_KOUT8, PIN_LOW);       
+        rt_pin_write(MCU_KOUT9, PIN_LOW);      //1.5kw off
         mMesureManager.step = 0;
+        hal_ResetBit(mMesureManager.IOStatus,4);
+        startTimeindex = 0;
+    }else if(cmd == AllContactor_OFF){
+        rt_pin_write(MCU_KOUT1, PIN_LOW);
+        rt_pin_write(MCU_KOUT2, PIN_LOW);   //启动信号
+        rt_pin_write(MCU_KOUT3, PIN_LOW);
+        rt_pin_write(MCU_KOUT4, PIN_LOW);
+        rt_pin_write(MCU_KOUT5, PIN_LOW);
+        rt_pin_write(MCU_KOUT6, PIN_LOW);
+        rt_pin_write(MCU_KOUT7, PIN_LOW);
+        rt_pin_write(MCU_KOUT8, PIN_LOW);
+        rt_pin_write(MCU_KOUT9, PIN_LOW);
+        rt_pin_write(MCU_KOUT10, PIN_LOW);
+        rt_pin_write(MCU_KOUT11, PIN_LOW);
+        rt_pin_write(MCU_KOUT12, PIN_LOW);
+        rt_pin_write(MCU_KOUT13, PIN_LOW);
+        rt_pin_write(MCU_KOUT14, PIN_LOW);  //预充电
     }
-    
 }
 
 

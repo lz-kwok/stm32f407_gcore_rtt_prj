@@ -613,6 +613,7 @@ int main(void)
         adc_val[1] = Filter(channel6);
         adc_val[2] = Filter(channel7);
         adc_val[3] = Filter(channel8);
+        g_usb_IO_status_scan();
         rt_thread_mdelay(50);
         vol_in_dc = adc_val[0]*330/4096;     //扩大100倍
         cur_in_dc = adc_val[1]*330/4096;     //扩大10倍
@@ -643,13 +644,15 @@ int main(void)
         data_measure[14] = ((rt_uint16_t)mMesureManager.out_efficiency)%100;
         data_measure[15] = mMesureManager.ErrorCode;
         data_measure[16] = mMesureManager.delta_voltage_percent;
-        data_measure[17] = 0x0d;
+        data_measure[17] = mMesureManager.IOStatus;
+        data_measure[18] = 0x0;
+        data_measure[19] = 0x0d;
         index ++;
         if(index == 20){
             index = 0;
             gInquiry_AC_data();
 #if (RT_CONFIG_USB_CDC)
-            g_usb_cdc_sendData(data_measure, 18);
+            g_usb_cdc_sendData(data_measure, 20);
 #endif
 #if (RT_CONFIG_UART3)
             g_Client_data_send(data_measure, 16);

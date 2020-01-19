@@ -37,6 +37,7 @@ typedef struct {
 	float out_efficiency;
 	float delta_voltage_percent;
 	rt_uint8_t ErrorCode;
+	rt_uint8_t IOStatus;
 }MesureManager;
 extern MesureManager mMesureManager;
 
