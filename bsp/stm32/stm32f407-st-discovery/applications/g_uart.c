@@ -13,6 +13,7 @@
 #include "g_usb_cdc.h"
 #include "g_measure.h"
 #include <g_ade7880.h>
+#include <math.h>
 
 /* 串口接收事件标志 */
 #define UART_RX_EVENT (1 << 0)
@@ -87,7 +88,7 @@ static struct rt_semaphore rx_sem;
 
 #define TN19002           \
 {                                          \
-    BAUD_RATE_9600,   /* 4800 bits/s */  \
+    BAUD_RATE_9600,   /* 9600 bits/s */  \
     DATA_BITS_8,      /* 8 databits */     \
     STOP_BITS_1,      /* 1 stopbit */      \
     PARITY_NONE,      /* No parity  */     \
@@ -355,7 +356,7 @@ void uart_thread_entry(void* parameter)
                 if(im_vol_min > im_vol){
                     im_vol_min = im_vol;
                 }
-                mMesureManager.delta_voltage_percent = im_vol_max-im_vol_min;
+                mMesureManager.delta_voltage_percent = (abs(im_vol-2200000))*100/im_vol;
             }
             uart_recv_num = 0;
             memset(uart_recv,0x0,64);
