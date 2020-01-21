@@ -343,11 +343,11 @@ void uart_thread_entry(void* parameter)
                 im_cur = (((rt_uint32_t)(uart_recv[7]))<<24)|(((rt_uint32_t)(uart_recv[8]))<<16)|(((rt_uint32_t)(uart_recv[9]))<<8)|uart_recv[10]; 
                 mMesureManager.ac_current = (rt_uint16_t)(im_cur/100);
                 im_pow = (((rt_uint32_t)(uart_recv[11]))<<24)|(((rt_uint32_t)(uart_recv[12]))<<16)|(((rt_uint32_t)(uart_recv[13]))<<8)|uart_recv[14]; 
-                mMesureManager.ac_energy = (float)(((float)im_pow)/100);
+                mMesureManager.ac_energy = (float)im_pow;
                 im_energy = (((rt_uint32_t)(uart_recv[15]))<<24)|(((rt_uint32_t)(uart_recv[16]))<<16)|(((rt_uint32_t)(uart_recv[17]))<<8)|uart_recv[18]; 
                 im_pf = (((rt_uint32_t)(uart_recv[19]))<<24)|(((rt_uint32_t)(uart_recv[20]))<<16)|(((rt_uint32_t)(uart_recv[21]))<<8)|uart_recv[22]; 
                 im_co2 = (((rt_uint32_t)(uart_recv[23]))<<24)|(((rt_uint32_t)(uart_recv[24]))<<16)|(((rt_uint32_t)(uart_recv[25]))<<8)|uart_recv[26]; 
-                im_frq = (((rt_uint32_t)(uart_recv[23]))<<31)|(((rt_uint32_t)(uart_recv[32]))<<16)|(((rt_uint32_t)(uart_recv[33]))<<8)|uart_recv[34]; 
+                im_frq = (((rt_uint32_t)(uart_recv[31]))<<24)|(((rt_uint32_t)(uart_recv[32]))<<16)|(((rt_uint32_t)(uart_recv[33]))<<8)|uart_recv[34]; 
                 mMesureManager.ac_freq = (rt_uint16_t)(im_frq/100);
 
                 if(im_vol > im_vol_max){
