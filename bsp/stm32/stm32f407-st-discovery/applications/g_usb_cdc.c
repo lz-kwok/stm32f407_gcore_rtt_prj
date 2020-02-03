@@ -162,12 +162,13 @@ static void usb_cdc_entry(void *param)
                     hal_ResetBit(mMesureManager.IOStatus,4);
                 }
             }
-        }else if((mMesureManager.step == 0)&&(mMesureManager.dpsp1000_Onoff == 1)&&(mMesureManager.step != 8)&&(mMesureManager.step != 9)){ 
-            if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
-                g_uart_sendto_Dpsp("VOLT 110.0");
-                rt_thread_mdelay(500);
-            }
         }
+        // else if((mMesureManager.step == 0)&&(mMesureManager.dpsp1000_Onoff == 1)&&(mMesureManager.step != 8)&&(mMesureManager.step != 9)){ 
+        //     if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
+        //         g_uart_sendto_Dpsp("VOLT 110.0");
+        //         rt_thread_mdelay(500);
+        //     }
+        // }
 
         rt_thread_mdelay(20);
     }
@@ -342,12 +343,6 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT4, PIN_LOW);
     }else if(cmd == Load_Over_ON){
         mMesureManager.step = 10;
-        // rt_pin_write(MCU_KOUT13, PIN_HIGH);
-        // rt_pin_write(MCU_KOUT7, PIN_HIGH);
-        // // rt_pin_write(MCU_KOUT8, PIN_HIGH);
-        // rt_pin_write(MCU_KOUT9, PIN_HIGH);
-        // rt_pin_write(MCU_KOUT10, PIN_HIGH);
-        // rt_pin_write(MCU_KOUT11, PIN_HIGH);
         rt_pin_write(MCU_KOUT6, PIN_HIGH);
         rt_pin_write(MCU_KOUT7, PIN_HIGH);
         rt_pin_write(MCU_KOUT8, PIN_HIGH);
@@ -362,12 +357,6 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT9, PIN_LOW);
         rt_pin_write(MCU_KOUT10, PIN_LOW);
         rt_pin_write(MCU_KOUT11, PIN_LOW);
-        // rt_pin_write(MCU_KOUT13, PIN_LOW);
-        // rt_pin_write(MCU_KOUT7, PIN_LOW);
-        // // rt_pin_write(MCU_KOUT8, PIN_LOW);
-        // rt_pin_write(MCU_KOUT9, PIN_LOW);
-        // rt_pin_write(MCU_KOUT10, PIN_LOW);
-        // rt_pin_write(MCU_KOUT11, PIN_LOW);
     }else if(cmd == Load_Short_Circuit_ON){
          mMesureManager.step = 12;
         rt_pin_write(MCU_KOUT12, PIN_HIGH);
@@ -383,7 +372,7 @@ void g_usb_pin_control(relaycmd cmd)
 
         // mMesureManager.dpsp1000_Onoff = 1;
         // g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-        // rt_thread_mdelay(1000);
+        // rt_thread_mdelay(100);
         // g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
 
         if(u_timer != RT_NULL){
