@@ -19,6 +19,7 @@ MesureManager mMesureManager;
 
 static void g_measure_manager_entry(void *param)
 {
+    int g_m = 0;
     static rt_uint8_t g_index = 0;
     rt_err_t result = RT_EOK;
     memset(&mMesureManager,0x0,sizeof(MesureManager));
@@ -28,95 +29,90 @@ static void g_measure_manager_entry(void *param)
         /* receive message */
         result = rt_mq_recv(&g_measure_mq, &msg, sizeof(struct hal_message),RT_WAITING_FOREVER);
         if(result == RT_EOK){
-            if(msg.what == uart3_rx_signal){
-                rt_uint8_t rec_buf[32];
-                rt_memset(rec_buf,0x0,sizeof(rec_buf));
-                int *rec_len = (int *)msg.content;
+            if(msg.what == m_OverCurrent){          //过流测试
+                for(g_m=0;g_m<15;g_m++){            //等待30s
+                    rt_thread_mdelay(1000);
+                }
+                mMesureManager.dpsp1000_Onoff = 1;                   //打开程控电源
+                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON"); 
+                rt_thread_mdelay(1000);
+                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON"); 
+                rt_thread_mdelay(1000);
+                g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
+                rt_thread_mdelay(1000);
+                g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
 
-                rt_uint8_t c_len = g_Client_data_receive(rec_buf,*rec_len);
-                if(c_len == 8){
-                    switch(rec_buf[1])
-                    {
-                        case 0xFE:       //查询版本
-                            sendBuf[1] = rec_buf[1];
-                            sendBuf[2] = MajorVer;
-                            sendBuf[3] = MiddleVer;
-                            sendBuf[4] = MinnorVer;
-                            g_Client_data_send(sendBuf, 10);
+                for(;;){
+                    g_index++;
+                    rt_thread_mdelay(1000);
+                    g_uart_sendto_Dpsp("VOLT 110.0");
+                    if(mMesureManager.dc_voltage > 10500.0){
+                        g_index = 0;
                         break;
-                        case 0xFD:       //接触器控制
-                            g_usb_pin_control((relaycmd)rec_buf[2]);
-                            if(rec_buf[2] == Load_Main_ON){
-                                rec_buf[2] = Load_Precharge_ON;
-                                sendBuf[1] = rec_buf[1];
-                                sendBuf[2] = rec_buf[2];
-                                g_usb_set_timer(RT_TRUE);
-                            }
-                            g_Client_data_send(rec_buf,8);
+                    }
+                    
+                    if(g_index == 10){
+                        g_index = 0;
                         break;
-                        case 0xFC:       //逆变器软启动
-                            sendBuf[1] = rec_buf[1];
-                            sendBuf[2] = rec_buf[2];
-                            g_Client_data_send(sendBuf, 10);
-                            if(rec_buf[2]){
-                                g_usb_control_softstart(RT_TRUE);
-                            }else{
-                                g_usb_control_softstart(RT_FALSE);
-                            }
+                    }
+                }
+                for(;;){
+                    g_index++;
+                    rt_thread_mdelay(2000);
+                    if(mMesureManager.ac_voltage > 21000.0){
+                        g_index = 0;
                         break;
-                        case 0xFB:       //开启直流电源
-                            if(rec_buf[2] == DC_Power_ON){
-                                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                                rt_thread_mdelay(1000);
-                                g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
-                            }else if(rec_buf[2] == DC_Power_OFF){
-                                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");
-                            }                  
-                            g_usb_cdc_sendData(rec_buf,c_len);      
-                        break;
-                        case 0xFA:       //源效应电压设置
-                            if(rec_buf[2] == 0x01){
-                                g_uart_sendto_Dpsp("VOLT 70.0");
-                            }else if(rec_buf[2] == 0x02){
-                                g_uart_sendto_Dpsp("VOLT 77.0");
-                            }else if(rec_buf[2] == 0x03){
-                                g_uart_sendto_Dpsp("VOLT 110.0");
-                            }else if(rec_buf[2] == 0x04){
-                                g_uart_sendto_Dpsp("VOLT 137.5");
-                            }else if(rec_buf[2] == 0x05){
-                                g_uart_sendto_Dpsp("VOLT 142.0");
-                            }                         
-                            g_Client_data_send(rec_buf,c_len);     
-                            rt_thread_mdelay(1000); 
-                        break;
-                        case 0xE0:       //自动化测试
-                            if(rec_buf[2] == 0x01){
-                                mMesureManager.autoChecktype = 1;
-                            }else{
-                                mMesureManager.autoChecktype = 0;
-                            }
-
-                            mMesureManager.autoCheckbyte = (rt_uint16_t)(((rt_uint16_t)rec_buf[3])<<8)+rec_buf[4];
-                        break;
-                        case 0x5F:
-                            mMesureManager.ErrorCode = rec_buf[2];
+                    }
+                    if(g_index == 10){
+                        g_index = 0;
                         break;
                     }
                 }
 
-                if(msg.freecb != NULL){
-                    msg.freecb(rec_len);
+                mMesureManager.step = 11;
+            }else if(msg.what == m_StartTime){    
+                for(;;){
+                    g_index++;
+                    rt_thread_mdelay(1000);
+                    g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF"); 
+                    mMesureManager.dpsp1000_Onoff = 0;
+                    if(mMesureManager.dc_voltage < 60.0){
+                        g_index = 0;
+                        break;
+                    }
+                    
+                    if(g_index == 10){
+                        g_index = 0;
+                        break;
+                    }
                 }
-            }else if(msg.what == uart6_rx_signal){
-                rt_uint8_t err_buf[32];
-                rt_memset(err_buf,0x0,sizeof(err_buf));
-                int *err_len = (int *)msg.content;
-                rt_uint8_t r_len = g_ErrorCode_data_receive(err_buf,*err_len);
-                mMesureManager.ErrorCode = err_buf[2];
+                rt_pin_write(MCU_KOUT11, PIN_HIGH);
+                rt_pin_write(MCU_KOUT9, PIN_HIGH);
 
-                if(msg.freecb != NULL){
-                    msg.freecb(err_len);
+                mMesureManager.dpsp1000_Onoff = 1;                   //打开程控电源
+                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON"); 
+                rt_thread_mdelay(1000);
+                g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
+                for(;;){
+                    g_index++;
+                    rt_thread_mdelay(1000);
+                    g_uart_sendto_Dpsp("VOLT 110.0");
+                    if(mMesureManager.dc_voltage > 10500.0){
+                        g_index = 0;
+                        break;
+                    }
+                    
+                    if(g_index == 10){
+                        g_index = 0;
+                        break;
+                    }
                 }
+
+                mMesureManager.step = 21;
+            }
+
+            if(msg.freecb != NULL){
+                msg.freecb(msg.content);
             }
         }
 

@@ -73,6 +73,10 @@ const rt_uint8_t uart3_int_num = 37;
 const rt_uint8_t uart6_int_num = 8;
 rt_uint8_t recv_flag = 0;
 static struct rt_semaphore rx_sem;
+static struct rt_semaphore tn_sem;
+
+static struct rt_mutex uart_lock;
+
 
 #define IM1281B           \
 {                                          \
@@ -97,6 +101,18 @@ static struct rt_semaphore rx_sem;
     RT_SERIAL_RB_BUFSZ, /* Buffer size */  \
     0                                      \
 }
+
+#define DPSP1000           \
+{                                          \
+    BAUD_RATE_19200,   /* 9600 bits/s */  \
+    DATA_BITS_8,      /* 8 databits */     \
+    STOP_BITS_1,      /* 1 stopbit */      \
+    PARITY_NONE,      /* No parity  */     \
+    BIT_ORDER_LSB,    /* LSB first sent */ \
+    NRZ_NORMAL,       /* Normal mode */    \
+    RT_SERIAL_RB_BUFSZ, /* Buffer size */  \
+    0                                      \
+}
     
 /* 回调函数 */
 static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
@@ -105,9 +121,10 @@ static rt_err_t uart_rx_callback(rt_device_t dev, rt_size_t size)
         rt_sem_release(&rx_sem);        
     }
     else if(dev == g_uart6){
-        if(size == uart6_int_num){
-            g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
-        }
+        // if(size == uart6_int_num){
+        //     g_MeasureQueue_send(uart6_rx_signal,(void *)&uart6_int_num);
+        // }
+        rt_sem_release(&tn_sem);      
     }
     
     return RT_EOK;
@@ -263,6 +280,14 @@ rt_device_t uart_open(const char *name)
                 rt_kprintf("control %s device error.%d\n",name,res);
                 return RT_NULL;
             }
+        }else if(strcmp(name,"uart1") == 0){
+            struct serial_configure uart_config = DPSP1000;
+            res = rt_device_control(dev,RT_DEVICE_CTRL_CONFIG,(void *)&uart_config);
+            if (res != RT_EOK)
+            {
+                rt_kprintf("control %s device error.%d\n",name,res);
+                return RT_NULL;
+            }
         }
     }
     else
@@ -277,10 +302,56 @@ rt_device_t uart_open(const char *name)
 
 void g_uart_sendto_Dpsp(const rt_uint8_t *cmd)
 {
+    rt_mutex_take(&uart_lock, RT_WAITING_FOREVER);
+    // rt_uint8_t stopByte = 0x0A;
+    // rt_device_write(g_uart1, 0, &stopByte, 1);
     while(*cmd)
     {
         uart_putchar(g_uart1,*cmd++);
     }
+    rt_thread_mdelay(100);
+    rt_mutex_release(&uart_lock);
+}
+
+void error_code_entry(void* parameter)
+{
+    rt_uint8_t tn_recv[16] = {0};
+    rt_uint8_t tn_recv_num = 0;
+    rt_uint8_t tn_cache;
+    rt_sem_init(&tn_sem, "tn_sem", 0, RT_IPC_FLAG_FIFO);
+    /* 打开串口 */
+    g_uart6 = uart_open(uart6_name);                //单逆
+    if(g_uart6 == RT_NULL){
+        rt_kprintf("%s open error.\n",uart6_name);
+        while (1)
+        {
+            rt_thread_delay(10);
+        }
+    }
+    rt_thread_mdelay(50);
+    memset(tn_recv,0x0,16);
+    while (1)
+    {   
+        while (rt_device_read(g_uart6, -1, &tn_cache, 1) != 1){
+            rt_sem_take(&tn_sem, RT_WAITING_FOREVER);
+        }
+
+        tn_recv[tn_recv_num++] = tn_cache;
+        if(tn_recv_num >= 4){
+            if((tn_recv[0] ==  0xA1)&&(tn_recv[1] ==  0x5F)){
+                mMesureManager.ErrorCode = tn_recv[2];
+            }
+            
+            tn_recv_num = 0;
+            memset(tn_recv,0x0,16);
+        }
+        
+        if(tn_recv[0] != 0xA1){
+            tn_recv_num = 0;
+            memset(tn_recv,0x0,16);
+        }
+    }
+
 }
 
 void uart_thread_entry(void* parameter)
@@ -314,15 +385,15 @@ void uart_thread_entry(void* parameter)
         }
     }
     
-    /* 打开串口 */
-    g_uart6 = uart_open(uart6_name);                //单逆
-    if(g_uart6 == RT_NULL){
-        rt_kprintf("%s open error.\n",uart1_name);
-        while (1)
-        {
-            rt_thread_delay(10);
-        }
-    }
+    // /* 打开串口 */
+    // g_uart6 = uart_open(uart6_name);                //单逆
+    // if(g_uart6 == RT_NULL){
+    //     rt_kprintf("%s open error.\n",uart1_name);
+    //     while (1)
+    //     {
+    //         rt_thread_delay(10);
+    //     }
+    // }
        
     rt_kprintf("%s\n",__func__);
     memset(uart_recv,0x0,64);
@@ -367,16 +438,29 @@ void uart_thread_entry(void* parameter)
 
 rt_err_t g_uart_init(void)
 {
-    rt_thread_t g_tid;
-    g_tid = rt_thread_create("uart_thread_entry",
+    rt_thread_t g_tid_1;
+    rt_thread_t g_tid_2;
+    rt_mutex_init(&uart_lock, "uart_lock", RT_IPC_FLAG_FIFO);
+    g_tid_1 = rt_thread_create("uart_thread_entry",
                     uart_thread_entry, 
                     RT_NULL,
                     1024, 
                     2, 
+                    20);
+    /* 创建成功则启动线程 */
+    if (g_tid_1 != RT_NULL){
+        rt_thread_startup(g_tid_1);
+    }
+
+    g_tid_2 = rt_thread_create("error_code_entry",
+                    error_code_entry, 
+                    RT_NULL,
+                    512, 
+                    6, 
                     10);
     /* 创建成功则启动线程 */
-    if (g_tid != RT_NULL){
-        rt_thread_startup(g_tid);
+    if (g_tid_2 != RT_NULL){
+        rt_thread_startup(g_tid_2);
         return RT_EOK;
     }
 

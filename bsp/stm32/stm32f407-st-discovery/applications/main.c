@@ -149,6 +149,9 @@ int main(void)
 {
     int i;
     static int index = 0;
+    static int send_num_total = 0;
+    static rt_uint16_t tmp_cur = 0;
+    static rt_uint8_t ctr_done = 0;
     static rt_uint16_t mycheckbits = 0;
     rt_uint16_t vol_in,cur_in;
     rt_uint16_t vol_in_dc,cur_in_dc;
@@ -175,440 +178,6 @@ int main(void)
     
     while (RT_TRUE)
     {   
-#if 0
-        if(g_MeasureAuto_Check_Get() == 1){
-            if(mycheckbits == 0){
-                mycheckbits = g_MeasureAuto_Checkbyte_Get();
-                rt_thread_mdelay(100);
-                dpsp_vol_set = 110.0;
-            }else{
-                //负载效应测试
-                for(;;){
-                    if(hal_GetBit(mycheckbits,Loadeffect) == 1){
-                        static rt_uint8_t loadeffectStep = 0;
-                        float vol_f = 0.0;
-                        adc_val[0] = Filter(channel5);
-                        adc_val[1] = Filter(channel6);
-                        vol_in = adc_val[0]*330/4096;     //扩大100倍
-                        cur_in = adc_val[1]*330/4096;     //扩大10倍
-                        vol_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                        if(loadeffectStep == 0){
-                            dpsp_vol_set = 110.0;
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
-                            rt_thread_mdelay(1000);
-                            loadeffectStep = 1;
-                        }else if(loadeffectStep == 1){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                loadeffectStep = 2;
-                                //send
-                                g_usb_pin_control(Load_1_5kW_ON);
-                            }
-                            
-                        }else if(loadeffectStep == 2){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                loadeffectStep = 3;
-                                //send
-                                g_usb_pin_control(Load_1_5kW_OFF);
-                                rt_thread_mdelay(1000);
-                                g_usb_pin_control(Load_3kW_ON);
-                            }
-                        }else if(loadeffectStep == 3){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                loadeffectStep = 0;
-
-                                //send
-                                g_usb_pin_control(Load_3kW_OFF);
-                                hal_ResetBit(mycheckbits,Loadeffect);
-                                break;
-                            }
-                        }
-
-                        if((vol_f - 110) > 1){
-                            if(dpsp_vol_set > 65){
-                                dpsp_vol_set -= 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }else if((vol_f - 110)< -1){
-                            if(dpsp_vol_set < 150){
-                                dpsp_vol_set += 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-
-                //效率测试
-                for(;;){
-                    if(hal_GetBit(mycheckbits,Efficiency) == 1){
-                        static rt_uint8_t EfficiencyStep = 0;
-                        float vol_f = 0.0;
-                        adc_val[0] = Filter(channel5);
-                        adc_val[1] = Filter(channel6);
-                        vol_in = adc_val[0]*330/4096;     //扩大100倍
-                        cur_in = adc_val[1]*330/4096;     //扩大10倍
-                        vol_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                        if(EfficiencyStep == 0){
-                            dpsp_vol_set = 110.0;
-                            g_usb_pin_control(Load_3kW_ON);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
-                            rt_thread_mdelay(1000);
-                            EfficiencyStep = 1;
-                        }else if(EfficiencyStep == 1){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                EfficiencyStep = 0;
-
-                                //send
-                                g_usb_pin_control(Load_3kW_OFF);
-                                hal_ResetBit(mycheckbits,Efficiency);
-                                break;
-                            }
-                        }
-
-                        if((vol_f - 110) > 1){
-                            if(dpsp_vol_set > 65){
-                                dpsp_vol_set -= 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }else if((vol_f - 110)< -1){
-                            if(dpsp_vol_set < 150){
-                                dpsp_vol_set += 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-                
-                //源效应测试
-                for(;;){
-                    if(hal_GetBit(mycheckbits,Sourceeffect) == 1){
-                        static rt_uint8_t SourceeffectStep = 0;
-                        float wishVolt = 0.0;
-                        float vol_f = 0.0;
-                        adc_val[0] = Filter(channel5);
-                        adc_val[1] = Filter(channel6);
-                        vol_in = adc_val[0]*330/4096;     //扩大100倍
-                        cur_in = adc_val[1]*330/4096;     //扩大10倍
-                        vol_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                        if(SourceeffectStep == 0){
-                            dpsp_vol_set = 77.0;
-                            wishVolt = 77.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_usb_pin_control(Load_3kW_ON);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            SourceeffectStep = 1;
-                        }else if(SourceeffectStep == 1){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                SourceeffectStep = 2;
-
-                                //send
-
-                                dpsp_vol_set = 110.0;
-                                wishVolt = 110.0;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(1000);
-                            }
-                        }else if(SourceeffectStep == 2){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                SourceeffectStep = 3;
-
-                                //send
-
-                                dpsp_vol_set = 137.5;
-                                wishVolt = 137.5;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(1000);
-                            }
-                        }else if(SourceeffectStep == 3){
-                            index++;
-                            rt_thread_mdelay(200);
-                            if(index == 10){
-                                index = 0;
-                                SourceeffectStep = 0;
-
-                                //send
-
-                                g_usb_pin_control(Load_3kW_OFF);
-                                hal_ResetBit(mycheckbits,Sourceeffect);
-                                break;
-                            }
-                        }
-
-                        if((vol_f - wishVolt) > 1){
-                            if(dpsp_vol_set > 65){
-                                dpsp_vol_set -= 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }else if((vol_f - wishVolt)< -1){
-                            if(dpsp_vol_set < 150){
-                                dpsp_vol_set += 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-
-                //输入欠压测试
-                for(;;){
-                    float vol_f = 0.0;
-                    adc_val[0] = Filter(channel5);
-                    adc_val[1] = Filter(channel6);
-                    vol_in = adc_val[0]*330/4096;     //扩大100倍
-                    cur_in = adc_val[1]*330/4096;     //扩大10倍
-                    vol_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                    if(hal_GetBit(mycheckbits,Undervoltage) == 1){
-                        static rt_uint8_t UndervoltageStep = 0;
-                        if(UndervoltageStep == 0){
-                            dpsp_vol_set = 110.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_usb_pin_control(Load_3kW_ON);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            UndervoltageStep = 1;
-                        }if(UndervoltageStep == 1){
-                            dpsp_vol_set -= 1.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            gScan_Error_Code();
-
-                            if(g_MeasureError_Code_Get() == 0x02){         //输入欠压
-                                UndervoltageStep = 0;
-                                //send
-                                g_usb_pin_control(Load_3kW_OFF);
-                                break;
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-
-                //输入过压测试
-                for(;;){
-                    float vol_f = 0.0;
-                    adc_val[0] = Filter(channel5);
-                    adc_val[1] = Filter(channel6);
-                    vol_in = adc_val[0]*330/4096;     //扩大100倍
-                    cur_in = adc_val[1]*330/4096;     //扩大10倍
-                    vol_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                    if(hal_GetBit(mycheckbits,Overvoltage) == 1){
-                        static rt_uint8_t OvervoltageStep = 0;
-                        if(OvervoltageStep == 0){
-                            dpsp_vol_set = 110.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_usb_pin_control(Load_3kW_ON);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            OvervoltageStep = 1;
-                        }if(OvervoltageStep == 1){
-                            dpsp_vol_set -= 1.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            gScan_Error_Code();
-
-                            if(g_MeasureError_Code_Get() == 0x02){         //输入欠压
-                                OvervoltageStep = 0;
-                                //send
-                                g_usb_pin_control(Load_3kW_OFF);
-                                break;
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-
-                //过载过流测试
-                for(;;){
-                    float cur_f = 0.0;
-                    float vol_f = 0.0;
-                    adc_val[0] = Filter(channel5);
-                    adc_val[1] = Filter(channel6);
-                    vol_in = adc_val[0]*330/4096;     //扩大100倍
-                    cur_in = adc_val[1]*330/4096;     //扩大10倍
-                    cur_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                    if(hal_GetBit(mycheckbits,OverLoad) == 1){
-                        static rt_uint8_t OverLoadStep = 0;
-                        if(OverLoadStep == 0){
-                            dpsp_vol_set = 110.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_usb_pin_control(Load_Over_ON);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            OverLoadStep = 1;
-                        }if(OverLoadStep == 1){
-                            rt_thread_mdelay(1000);
-                            gScan_Error_Code();     
-
-                            if(g_ade_base_parameter.PhaseAIRMS >= 19){
-                                OverLoadStep = 2;
-                                rt_uint8_t err = g_MeasureError_Code_Get();
-                                //send
-                            }
-                        }if(OverLoadStep == 2){
-                            rt_thread_mdelay(1000);
-                            gScan_Error_Code();     
-
-                            if(g_ade_base_parameter.PhaseAIRMS >= 32){
-                                OverLoadStep = 2;
-                                rt_uint8_t err = g_MeasureError_Code_Get();
-                                //send
-                                g_usb_pin_control(Load_Over_OFF);
-                                break;
-                            }
-                        }
-
-                        if((vol_f - 110) > 1){
-                            if(dpsp_vol_set > 65){
-                                dpsp_vol_set -= 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }else if((vol_f - 110)< -1){
-                            if(dpsp_vol_set < 150){
-                                dpsp_vol_set += 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-
-                //短路测试
-                for(;;){
-                    float cur_f = 0.0;
-                    float vol_f = 0.0;
-                    adc_val[0] = Filter(channel5);
-                    adc_val[1] = Filter(channel6);
-                    vol_in = adc_val[0]*330/4096;     //扩大100倍
-                    cur_in = adc_val[1]*330/4096;     //扩大10倍
-                    cur_f = (float)(((float)vol_in)/100*70.82 - 1.98);
-                    if(hal_GetBit(mycheckbits,ShortCircuit) == 1){
-                        static rt_uint8_t ShortCircuitStep = 0;
-                        if(ShortCircuitStep == 0){
-                            dpsp_vol_set = 110.0;
-                            memset(dpsp_cmd,0x0,32);
-                            rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-                            rt_thread_mdelay(1000);   
-                            g_uart_sendto_Dpsp(dpsp_cmd);
-                            rt_thread_mdelay(1000);
-                            ShortCircuitStep = 1;
-                        }if(ShortCircuitStep == 1){
-                            rt_thread_mdelay(1000);
-                            rt_thread_mdelay(1000);    
-                            g_usb_pin_control(Load_Short_Circuit_ON);
-
-                            ShortCircuitStep = 2;
-                        }if(ShortCircuitStep == 2){
-                            ShortCircuitStep = 0;
-                            rt_thread_mdelay(1000);
-                            gScan_Error_Code();     
-
-                            rt_uint8_t err = g_MeasureError_Code_Get();
-                            //send
-                            break;
-                        }
-
-                        if((vol_f - 110) > 1){
-                            if(dpsp_vol_set > 65){
-                                dpsp_vol_set -= 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }else if((vol_f - 110)< -1){
-                            if(dpsp_vol_set < 150){
-                                dpsp_vol_set += 0.1;
-                                memset(dpsp_cmd,0x0,32);
-                                rt_sprintf((char *)dpsp_cmd,"VOLT .1%f",dpsp_vol_set);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(500);
-                            }
-                        }
-                    }else{
-                        break;
-                    }
-                }
-
-
-            }
-        }
-#endif
-
         adc_val[0] = Filter(channel5);
         adc_val[1] = Filter(channel6);
         adc_val[2] = Filter(channel7);
@@ -624,8 +193,10 @@ int main(void)
         mMesureManager.dc_current = (float)(((float)cur_in_dc)/100*18.086 - 0.102)*100;
         mMesureManager.dc_energy = mMesureManager.dc_voltage*mMesureManager.dc_current;
         if(mMesureManager.dc_energy != 0.0){
-            mMesureManager.out_efficiency = (mMesureManager.ac_energy/mMesureManager.dc_energy)*100;
+            mMesureManager.out_efficiency = (mMesureManager.ac_energy/mMesureManager.dc_energy)*10000;
         }
+
+
         
         data_measure[0] = 0x0d;
         data_measure[1] = 0xe0;
@@ -636,29 +207,244 @@ int main(void)
         data_measure[6] = ((rt_uint16_t)mMesureManager.dc_current)%100;
         data_measure[7] = ((rt_uint16_t)mMesureManager.ac_voltage)/100;
         data_measure[8] = ((rt_uint16_t)mMesureManager.ac_voltage)%100;
-        data_measure[9] = ((rt_uint16_t)mMesureManager.ac_current)/100;
-        data_measure[10] = ((rt_uint16_t)mMesureManager.ac_current)%100;
+
+        if(mMesureManager.step == 10){
+            if(tmp_cur < mMesureManager.ac_current){
+                tmp_cur = mMesureManager.ac_current;
+                mMesureManager.ac_current = tmp_cur;
+                data_measure[9] = ((rt_uint16_t)tmp_cur)/100;
+                data_measure[10] = ((rt_uint16_t)tmp_cur)%100;
+            }
+        }else{
+            tmp_cur = 0;
+            data_measure[9] = ((rt_uint16_t)mMesureManager.ac_current)/100;
+            data_measure[10] = ((rt_uint16_t)mMesureManager.ac_current)%100;
+        }
+
         data_measure[11] = ((rt_uint16_t)mMesureManager.ac_freq)/100;
         data_measure[12] = ((rt_uint16_t)mMesureManager.ac_freq)%100;
         data_measure[13] = ((rt_uint16_t)mMesureManager.out_efficiency)/100;
         data_measure[14] = ((rt_uint16_t)mMesureManager.out_efficiency)%100;
         data_measure[15] = mMesureManager.ErrorCode;
-        data_measure[16] = mMesureManager.delta_voltage_percent;
+        data_measure[16] = send_num_total;
         data_measure[17] = mMesureManager.IOStatus;
-        data_measure[18] = 0x0;
+        data_measure[18] = mMesureManager.AutoCheck;
         data_measure[19] = 0x0d;
         index ++;
         if(index == 20){
             index = 0;
             gInquiry_AC_data();
 #if (RT_CONFIG_USB_CDC)
-            g_usb_cdc_sendData(data_measure, 20);
+            if(mMesureManager.step != 0){
+                g_usb_cdc_sendData(data_measure, 20);        
+                if(mMesureManager.AutoCheck == 1){
+                    if(mMesureManager.step <= 7){
+                        send_num_total ++;
+                        if(send_num_total == 11){
+                            send_num_total = 0;
+                            ctr_done = 0;
+                            if((mMesureManager.step < 3)&&(mMesureManager.step > 0)){
+                                mMesureManager.step++;
+                            }else if(mMesureManager.step == 4){
+                                mMesureManager.step = 0;;
+                            }else if((mMesureManager.step > 4)&&(mMesureManager.step < 7)){
+                                mMesureManager.step ++;
+                            }else if(mMesureManager.step == 7){
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                mMesureManager.step = 0;
+                            }
+                        }
+                    }else if(mMesureManager.step == 8){       //欠压
+                        if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x02)){
+                            send_num_total++;
+                            if(send_num_total == 4){
+                                send_num_total = 0;
+                                mMesureManager.step = 0;
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                            }
+                        }else{
+                            send_num_total = 0;
+                        }
+                    }else if(mMesureManager.step == 9){       //过压
+                        if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x01)){
+                            send_num_total++;
+                            if(send_num_total == 4){
+                                send_num_total = 0;
+                                mMesureManager.step = 0;
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                            }
+                        }else{
+                            send_num_total = 0;
+                        }
+                    }else if(mMesureManager.step == 10){
+                        if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x06)){
+                            send_num_total++;
+                            if(send_num_total == 4){
+                                send_num_total = 0;
+                                mMesureManager.step = 0;
+                            }
+                        }else{
+                            send_num_total = 0;
+                        }
+                    }else if(mMesureManager.step == 11){
+                        // if(((mMesureManager.ac_voltage/100) < 200)&&((mMesureManager.ac_current/100) > 18)&&(mMesureManager.ErrorCode == 0x05)){
+                        if(mMesureManager.ErrorCode == 0x05){
+                            send_num_total++;
+                            if(send_num_total == 4){
+                                send_num_total = 0;
+                                mMesureManager.step = 0;
+                                rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                                rt_pin_write(MCU_KOUT8, PIN_LOW);
+                                rt_pin_write(MCU_KOUT9, PIN_LOW);
+                                rt_pin_write(MCU_KOUT10, PIN_LOW);
+                                rt_pin_write(MCU_KOUT11, PIN_LOW);
+                                rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            }
+                        }else{
+                            send_num_total = 0;
+                            // rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            // rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            // rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            // rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            // rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            // rt_pin_write(MCU_KOUT13, PIN_LOW);
+                        }
+                    }else if(mMesureManager.step == 12){          //短路
+                        if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x0B)){
+                            send_num_total++;
+                            if(send_num_total == 4){
+                                send_num_total = 0;
+                                mMesureManager.step = 0;
+                                rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                                rt_pin_write(MCU_KOUT8, PIN_LOW);
+                                rt_pin_write(MCU_KOUT9, PIN_LOW);
+                                rt_pin_write(MCU_KOUT10, PIN_LOW);
+                                rt_pin_write(MCU_KOUT11, PIN_LOW);
+                                rt_pin_write(MCU_KOUT12, PIN_LOW);
+                                rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            }
+
+                        }
+                    }else if(mMesureManager.step == 20){          //反接
+                        send_num_total++;
+                        if(send_num_total >= 15){
+                            send_num_total = 0;
+                            mMesureManager.step = 0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                        }else{
+                            if((mMesureManager.ac_voltage/100) > 200){
+                                if((send_num_total > 4)&&(send_num_total <= 10)){
+                                    send_num_total = 0;
+                                    mMesureManager.step = 0;
+                                    rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                                    rt_pin_write(MCU_KOUT8, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT9, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT10, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT11, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT13, PIN_LOW);
+                                }
+                            }
+                        }
+                    }else if(mMesureManager.step == 22){  //&启动时间
+                        send_num_total++;
+                        if(send_num_total >= 15){
+                            send_num_total = 0;
+                            mMesureManager.step = 0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                        }else{
+                            if((mMesureManager.ac_voltage/100) > 200){
+                                if((send_num_total > 4)&&(send_num_total <= 10)){
+                                    send_num_total = 0;
+                                    mMesureManager.step = 0;
+                                    rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                                    rt_pin_write(MCU_KOUT8, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT9, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT10, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT11, PIN_LOW);
+                                    rt_pin_write(MCU_KOUT13, PIN_LOW);
+                                }
+                            }
+                        }
+                    }else if(mMesureManager.step == 21){
+                        send_num_total++;
+                        if(send_num_total == 4){
+                            send_num_total = 0;
+                            mMesureManager.step = 0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT12, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                        }
+                    }
+                    
+                }   
+            }
+            
 #endif
 #if (RT_CONFIG_UART3)
             g_Client_data_send(data_measure, 16);
 #endif
         }
 
+        if(mMesureManager.AutoCheck == 1){
+            if(ctr_done == 0){
+                ctr_done = 1;
+                if(mMesureManager.step == 2){
+                    rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                    rt_pin_write(MCU_KOUT8, PIN_LOW);
+                    rt_pin_write(MCU_KOUT9, PIN_LOW);
+                    rt_pin_write(MCU_KOUT10, PIN_LOW);
+                    rt_pin_write(MCU_KOUT11, PIN_LOW);
+                    rt_pin_write(MCU_KOUT13, PIN_LOW);
+                    rt_thread_mdelay(500);
+                    g_usb_pin_control(Load_1_5kW_ON);
+                }else if(mMesureManager.step == 3){
+                    rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                    rt_pin_write(MCU_KOUT8, PIN_LOW);
+                    rt_pin_write(MCU_KOUT9, PIN_LOW);
+                    rt_pin_write(MCU_KOUT10, PIN_LOW);
+                    rt_pin_write(MCU_KOUT11, PIN_LOW);
+                    rt_pin_write(MCU_KOUT13, PIN_LOW);
+                    rt_thread_mdelay(500);
+                    g_usb_pin_control(Load_3kW_ON);
+                }else if(mMesureManager.step == 6){
+                    g_uart_sendto_Dpsp("VOLT 90.0");
+                    rt_thread_mdelay(2000);
+                    g_uart_sendto_Dpsp("VOLT 100.0");
+                    rt_thread_mdelay(2000);
+                    g_uart_sendto_Dpsp("VOLT 110.0");
+                    rt_thread_mdelay(2000);
+                    // g_set_dpsp_vol(110.0);
+                }else if(mMesureManager.step == 7){
+                    g_uart_sendto_Dpsp("VOLT 120.0");
+                    rt_thread_mdelay(1000);
+                    g_uart_sendto_Dpsp("VOLT 125.0");
+                    rt_thread_mdelay(2000);
+                    g_uart_sendto_Dpsp("VOLT 132.0");
+                    rt_thread_mdelay(2000);
+                    g_uart_sendto_Dpsp("VOLT 137.5");
+                    rt_thread_mdelay(2000);
+                    // g_set_dpsp_vol(137.5);
+                }
+            }
+        }else{
+            send_num_total = 0;
+            ctr_done = 0;
+            mMesureManager.step = 0;
+        }
         
     }
 

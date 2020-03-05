@@ -27,6 +27,7 @@ static float dpsp_vol_set_H = 130.0;
 
 static void usb_cdc_entry(void *param)
 {
+    int u = 0;
     static rt_uint8_t u_index = 0;
     rt_uint8_t dataRecv[32];
     rt_uint8_t dpsp_cmd[32];
@@ -88,8 +89,22 @@ static void usb_cdc_entry(void *param)
                         if(dataRecv[2] == 0x01){
                             g_uart_sendto_Dpsp("VOLT 70.0");
                         }else if(dataRecv[2] == 0x02){
-                            mMesureManager.step = 5;
+                            g_uart_sendto_Dpsp("VOLT 100.0");
+                            rt_thread_mdelay(1000);
+                            dpsp_vol_set_H = 94.0;
+                            for(;;){
+                                memset(dpsp_cmd,0x0,32);
+                                dpsp_vol_set_H -= 1.0;
+                                if(dpsp_vol_set_H < 80.0){
+                                   break;
+                                }
+                                sprintf((char *)dpsp_cmd,"VOLT %.1f",dpsp_vol_set_H);
+                                g_uart_sendto_Dpsp(dpsp_cmd);
+                                rt_thread_mdelay(1000);
+                            }
                             g_uart_sendto_Dpsp("VOLT 77.0");
+                            rt_thread_mdelay(1000);
+                            mMesureManager.step = 5;
                         }else if(dataRecv[2] == 0x03){
                             mMesureManager.step = 6;
                             g_uart_sendto_Dpsp("VOLT 110.0");
@@ -101,6 +116,459 @@ static void usb_cdc_entry(void *param)
                         }                         
                         g_usb_cdc_sendData(dataRecv,recvLen);     
                         rt_thread_mdelay(1000); 
+                    break;
+                case 0xF9:
+                        mMesureManager.AutoCheck = 1;
+                        if(dataRecv[2] == 0x01){
+                            g_usb_pin_control(Load_None_ON);
+                        }else if(dataRecv[2] == 0x02){
+                            mMesureManager.ErrorCode = 0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(500);
+                            g_usb_pin_control(Efficiency_ON);
+                        }else if(dataRecv[2] == 0x03){
+                            mMesureManager.ErrorCode = 0;
+                            mMesureManager.step = 0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");
+                            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+                            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+                            rt_thread_mdelay(2000);
+                            g_uart_sendto_Dpsp("VOLT 108.0");
+                            rt_thread_mdelay(2000);
+                            dpsp_vol_set_H = 106.0;
+                            for(;;){
+                                memset(dpsp_cmd,0x0,32);
+                                dpsp_vol_set_H -= 2.0;
+                                if(dpsp_vol_set_H < 80.0){
+                                   break;
+                                }
+                                sprintf((char *)dpsp_cmd,"VOLT %.1f",dpsp_vol_set_H);
+                                g_uart_sendto_Dpsp(dpsp_cmd);
+                                rt_thread_mdelay(2000);
+                            }
+
+                            g_uart_sendto_Dpsp("VOLT 77.0");
+                            // g_uart_sendto_Dpsp("VOLT 77.0");
+                            rt_thread_mdelay(2000);
+                            g_uart_sendto_Dpsp("VOLT 77.0");
+                            // g_set_dpsp_vol(77.0);
+                            mMesureManager.step = 5;
+                        }else if(dataRecv[2] == 0x04){           //欠压
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
+                            rt_thread_mdelay(2000);
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            // g_set_dpsp_vol(77.0);
+                            
+                            g_usb_pin_control(Undervoltage_ON);
+                        }else if(dataRecv[2] == 0x05){           //过压
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp("VOLT 100.0");
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_thread_mdelay(1000);
+                            // g_set_dpsp_vol(120.0);
+                            
+                            g_usb_pin_control(Overvoltage_ON);
+                        }else if(dataRecv[2] == 0x06){           //过载
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(1000);
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_thread_mdelay(1000);
+                            // g_set_dpsp_vol(110.0);
+                            g_usb_pin_control(Load_Over_ON);
+                        }else if(dataRecv[2] == 0x07){           //过流
+                            if(dataRecv[3] == 0x00){
+                                mMesureManager.ErrorCode = 0x0;
+                                rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                                rt_pin_write(MCU_KOUT8, PIN_LOW);
+                                rt_pin_write(MCU_KOUT9, PIN_LOW);
+                                rt_pin_write(MCU_KOUT10, PIN_LOW);
+                                rt_pin_write(MCU_KOUT11, PIN_LOW);
+                                rt_pin_write(MCU_KOUT13, PIN_LOW);
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");    //恢复直流电源
+                                mMesureManager.step = 11;
+                                for(;;){
+                                    u_index++;
+                                    rt_thread_mdelay(1000);
+                                    g_uart_sendto_Dpsp("VOLT 110.0");
+                                    if(mMesureManager.dc_voltage > 10500.0){
+                                        u_index = 0;
+                                        break;
+                                    }
+                                    
+                                    if(u_index == 10){
+                                        u_index = 0;
+                                        break;
+                                    }
+                                }
+                                for(;;){
+                                    u_index++;
+                                    rt_thread_mdelay(2000);
+                                    if(mMesureManager.ac_voltage > 21000.0){
+                                        u_index = 0;
+                                        break;
+                                    }
+                                    if(u_index == 10){
+                                        u_index = 0;
+                                        break;
+                                    }
+                                }   
+                                mMesureManager.dpsp1000_Onoff = 0;
+                                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");     //关闭程控直流电源
+                                rt_thread_mdelay(2000);
+                                g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");
+                            }else if(dataRecv[3] == 0x01){
+                                g_usb_pin_control(OverCurrent_ON);
+                            }
+                            
+                            // g_set_dpsp_vol(110.0);
+                            // g_usb_pin_control(OverCurrent_ON);
+                        }else if(dataRecv[2] == 0x08){           //短路
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(1000);
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_thread_mdelay(1000);
+                            // g_set_dpsp_vol(110.0);
+                            g_usb_pin_control(Load_Short_Circuit_ON);
+                        }else if(dataRecv[2] == 0x09){           //反接&
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT12, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(1000);
+                            
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            g_usb_pin_control(Load_Main_OFF);        //关闭主接触器
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage < 1000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_thread_mdelay(1000);
+                            rt_thread_mdelay(1000);
+                            rt_thread_mdelay(1000);
+                            rt_pin_write(MCU_KOUT4, PIN_HIGH);          //反接
+                            rt_thread_mdelay(1000);                     //延迟1s
+                            rt_pin_write(MCU_KOUT4, PIN_LOW);           //正接
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF"); 
+                            rt_thread_mdelay(1000);
+                            rt_thread_mdelay(1000);
+                            rt_thread_mdelay(1000);
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");    //恢复直流电源
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_pin_write(MCU_KOUT14, PIN_HIGH);         //预充电
+                            rt_thread_mdelay(1000);   
+                            rt_thread_mdelay(1000);   
+                            rt_thread_mdelay(1000);                     //延迟3s
+                            rt_pin_write(MCU_KOUT3, PIN_HIGH);          //打开主接触器
+                            rt_pin_write(MCU_KOUT2, PIN_HIGH);          //启动信号
+                            rt_pin_write(MCU_KOUT14, PIN_LOW);          //关闭预充电
+                            mMesureManager.step = 20;
+
+                            // g_set_dpsp_vol(110.0);
+                            // g_usb_pin_control(Load_Reverse_ON);
+                        }else if(dataRecv[2] == 0x0A){                  //启动时间
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT12, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            rt_thread_mdelay(1000);
+                            g_usb_pin_control(Load_Main_OFF);        //关闭主接触器
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage < 1000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
+                            rt_thread_mdelay(1000);
+                            g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");    //恢复直流电源
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            rt_pin_write(MCU_KOUT14, PIN_HIGH);         //预充电
+                            rt_thread_mdelay(1000);   
+                            rt_thread_mdelay(1000);   
+                            rt_thread_mdelay(1000);                     //延迟3s
+                            rt_pin_write(MCU_KOUT3, PIN_HIGH);          //打开主接触器
+                            rt_pin_write(MCU_KOUT2, PIN_HIGH);          //启动信号
+                            rt_pin_write(MCU_KOUT14, PIN_LOW);          //关闭预充电
+                            mMesureManager.step = 22;
+                        }else if(dataRecv[2] == 0x0B){           //带吸尘器启动
+                            mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
+                            rt_pin_write(MCU_KOUT8, PIN_LOW);
+                            rt_pin_write(MCU_KOUT9, PIN_LOW);
+                            rt_pin_write(MCU_KOUT10, PIN_LOW);
+                            rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            rt_pin_write(MCU_KOUT13, PIN_LOW);
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(1000);
+                                g_uart_sendto_Dpsp("VOLT 110.0");
+                                if(mMesureManager.dc_voltage > 10500.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
+                            mMesureManager.step = 21;
+                        }
+                        g_usb_cdc_sendData(dataRecv,recvLen);   
+                    break;
+                case 0xF8:
+                        mMesureManager.AutoCheck = 0;
+                        mMesureManager.step = 0;
+                        g_usb_cdc_sendData(dataRecv,recvLen);   
                     break;
                 }
             }
@@ -118,13 +586,14 @@ static void usb_cdc_entry(void *param)
                 g_uart_sendto_Dpsp(dpsp_cmd);
             }
             
-            rt_thread_mdelay(3000);
+            rt_thread_mdelay(2000);
             //赋值故障码
-            if((mMesureManager.ac_voltage/100) < 200){
+            if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x02)){
                 vol_set = 0;
-                dpsp_vol_set_L = 77.0;
+                dpsp_vol_set_L = 85.0;
                 mMesureManager.ErrorCode = 0x02;
             }
+            // g_set_dpsp_vol(60.0);
         }else if(mMesureManager.step == 9){     //过压
             if(vol_set == 1){
                 memset(dpsp_cmd,0x0,32);
@@ -135,33 +604,19 @@ static void usb_cdc_entry(void *param)
                 sprintf((char *)dpsp_cmd,"VOLT %.1f",dpsp_vol_set_H);
                 g_uart_sendto_Dpsp(dpsp_cmd);
             }
-            rt_thread_mdelay(3000);
+            rt_thread_mdelay(2000);
             //赋值故障码
-            if((mMesureManager.ac_voltage/100) < 200){
+            if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x01)){
                 vol_set = 0;
                 dpsp_vol_set_H = 137.0;
                 mMesureManager.ErrorCode = 0x01;
             }
         }else if(mMesureManager.step == 10){    //过载
-            if((mMesureManager.ac_voltage/10000) < 200){
+             if(((mMesureManager.ac_voltage/100) < 200)&&(mMesureManager.ErrorCode == 0x06)){
                 mMesureManager.ErrorCode = 0x06;
             }
-        }else if(mMesureManager.step == 11){    //过流
-            if((mMesureManager.ac_voltage/10000) < 200){
-                mMesureManager.ErrorCode = 0x05;
-            }
-        }else if(mMesureManager.step == 12){    //短路
-            if((mMesureManager.ac_voltage/10000) < 200){
-                mMesureManager.ErrorCode = 0x05;
-            }
         }else if(mMesureManager.step == 13){    //启动时间
-            if(startTimeindex == 2){
-                startTimeindex = 0;
-                mMesureManager.step = 0;
-                if((mMesureManager.ac_voltage/10000) > 200){
-                    hal_ResetBit(mMesureManager.IOStatus,4);
-                }
-            }
+
         }
         // else if((mMesureManager.step == 0)&&(mMesureManager.dpsp1000_Onoff == 1)&&(mMesureManager.step != 8)&&(mMesureManager.step != 9)){ 
         //     if((mMesureManager.dc_voltage > 11200.0)||(mMesureManager.dc_voltage < 10800.0)){
@@ -173,6 +628,32 @@ static void usb_cdc_entry(void *param)
         rt_thread_mdelay(20);
     }
     
+}
+
+
+void g_set_dpsp_vol(float volt)
+{
+    rt_uint8_t vol_set_string[32];
+    float now_voltage = 0.0;
+    
+    for(;;){
+        rt_thread_mdelay(800);
+        now_voltage = (float)mMesureManager.dc_voltage/100;
+        if((now_voltage - volt) > 1.0){
+            memset(vol_set_string,0x0,32);
+            now_voltage -= 0.5;
+            sprintf((char *)vol_set_string,"VOLT %.1f",vol_set_string);
+            g_uart_sendto_Dpsp(vol_set_string);
+        }else if((now_voltage - volt) < -1.0){
+            memset(vol_set_string,0x0,32);
+            now_voltage += 0.5;
+            sprintf((char *)vol_set_string,"VOLT %.1f",vol_set_string);
+            g_uart_sendto_Dpsp(vol_set_string);
+        }else{
+            break;
+        }
+        
+    }
 }
 
 
@@ -334,18 +815,19 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == Overvoltage_ON){
         mMesureManager.step = 9;
         vol_set = 1;
-        dpsp_vol_set_H = 130.0;
+        dpsp_vol_set_H = 120.0;
     }else if(cmd == Overvoltage_OFF){
         mMesureManager.step = 0;
     }else if(cmd == Load_Reverse_ON){
         rt_pin_write(MCU_KOUT4, PIN_HIGH);
+        mMesureManager.step = 20;
     }else if(cmd == Load_Reverse_OFF){
         rt_pin_write(MCU_KOUT4, PIN_LOW);
     }else if(cmd == Load_Over_ON){
         mMesureManager.step = 10;
         rt_pin_write(MCU_KOUT6, PIN_HIGH);
         rt_pin_write(MCU_KOUT7, PIN_HIGH);
-        rt_pin_write(MCU_KOUT8, PIN_HIGH);
+        // rt_pin_write(MCU_KOUT8, PIN_HIGH);
         rt_pin_write(MCU_KOUT9, PIN_HIGH);
         rt_pin_write(MCU_KOUT10, PIN_HIGH);
         rt_pin_write(MCU_KOUT11, PIN_HIGH);
@@ -359,7 +841,7 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT11, PIN_LOW);
     }else if(cmd == Load_Short_Circuit_ON){
          mMesureManager.step = 12;
-        rt_pin_write(MCU_KOUT12, PIN_HIGH);
+         rt_pin_write(MCU_KOUT12, PIN_HIGH);
     }else if(cmd == Load_Short_Circuit_OFF){
          mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT12, PIN_LOW);
@@ -369,11 +851,6 @@ void g_usb_pin_control(relaycmd cmd)
         rt_pin_write(MCU_KOUT14, PIN_LOW);
     }else if(cmd == Load_Main_ON){
         rt_pin_write(MCU_KOUT14, PIN_HIGH);
-
-        // mMesureManager.dpsp1000_Onoff = 1;
-        // g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON");
-        // rt_thread_mdelay(100);
-        // g_uart_sendto_Dpsp((const rt_uint8_t *)"VOLT 110.0");
 
         if(u_timer != RT_NULL){
             rt_timer_start(u_timer);
@@ -387,7 +864,17 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == StartSig_ON){
 
     }else if(cmd == OverCurrent_ON){
-        mMesureManager.step = 11;
+        // mMesureManager.dpsp1000_Onoff = 0;
+        // g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP OFF");     //关闭程控直流电源
+        rt_thread_mdelay(1000);
+        rt_pin_write(MCU_KOUT6, PIN_HIGH);
+        rt_pin_write(MCU_KOUT7, PIN_HIGH);
+        rt_pin_write(MCU_KOUT8, PIN_HIGH);
+        rt_pin_write(MCU_KOUT9, PIN_HIGH);
+        rt_pin_write(MCU_KOUT10, PIN_HIGH);
+        rt_pin_write(MCU_KOUT11, PIN_HIGH);
+        // mMesureManager.step = 11;
+        g_MeasureQueue_send(m_OverCurrent,RT_NULL);
     }else if(cmd == OverCurrent_OFF){
         mMesureManager.step = 0;
     }else if(cmd == StartTime_ON){

@@ -26,6 +26,7 @@ typedef struct {
 	rt_uint8_t dpsp1000_Onoff;
 	rt_uint8_t autoChecktype;
 	rt_uint16_t autoCheckbyte;
+	rt_uint8_t MainStep;
 	rt_uint8_t step;
 	float dc_voltage;
 	float dc_current;
@@ -38,12 +39,13 @@ typedef struct {
 	float delta_voltage_percent;
 	rt_uint8_t ErrorCode;
 	rt_uint8_t IOStatus;
+	rt_uint8_t AutoCheck;
 }MesureManager;
 extern MesureManager mMesureManager;
 
 typedef enum{
-	uart3_rx_signal = 0,
-	uart1_rx_signal,
+	m_OverCurrent = 0,
+	m_StartTime = 1,
 	uart6_rx_signal
 }msg_type;
 
