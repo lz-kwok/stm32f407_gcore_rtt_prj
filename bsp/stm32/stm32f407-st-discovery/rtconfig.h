@@ -16,6 +16,9 @@
 #define RT_USING_IDLE_HOOK
 #define RT_IDEL_HOOK_LIST_SIZE 4
 #define IDLE_THREAD_STACK_SIZE 256
+#define RT_USING_TIMER_SOFT
+#define RT_TIMER_THREAD_PRIO 4
+#define RT_TIMER_THREAD_STACK_SIZE 512
 #define RT_DEBUG
 #define RT_DEBUG_COLOR
 
@@ -38,7 +41,7 @@
 #define RT_USING_DEVICE
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 128
-#define RT_CONSOLE_DEVICE_NAME "uart1"
+#define RT_CONSOLE_DEVICE_NAME "uart0"
 #define RT_VER_NUM 0x40002
 #define ARCH_ARM
 #define RT_USING_CPU_FFS
@@ -73,16 +76,6 @@
 
 /* Device virtual file system */
 
-#define RT_USING_DFS
-#define DFS_USING_WORKDIR
-#define DFS_FILESYSTEMS_MAX 2
-#define DFS_FILESYSTEM_TYPES_MAX 2
-#define DFS_FD_MAX 4
-#define RT_USING_DFS_MNTTABLE
-#define RT_USING_DFS_DEVFS
-#define RT_USING_DFS_UFFS
-#define RT_UFFS_ECC_MODE_1
-#define RT_UFFS_ECC_MODE 1
 
 /* Device Drivers */
 
@@ -95,8 +88,11 @@
 #define RT_SERIAL_USING_DMA
 #define RT_SERIAL_RB_BUFSZ 64
 #define RT_USING_PIN
+#define RT_USING_ADC
+#define BSP_USING_ADC3
 #define RT_USING_MTD_NAND
 #define RT_MTD_NAND_DEBUG
+#define RT_USING_SPI
 
 /* Using USB */
 
@@ -115,7 +111,6 @@
 /* POSIX layer and C standard library */
 
 #define RT_USING_LIBC
-#define RT_USING_POSIX
 
 /* Network */
 
@@ -182,12 +177,6 @@
 
 /* AT commands */
 
-#define RT_USING_AT
-#define AT_USING_CLIENT
-#define AT_CLIENT_NUM_MAX 1
-#define AT_USING_CLI
-#define AT_CMD_MAX_LEN 256
-#define AT_SW_VERSION_NUM 0x10300
 
 /* VBUS(Virtual Software BUS) */
 
@@ -247,10 +236,6 @@
 
 /* Onboard Peripheral Drivers */
 
-#define PHY_USING_LAN8720A
-#define BSP_USING_ETH
-#define BSP_USING_GPRS
-#define BSP_USING_AIR202
 
 /* On-chip Peripheral Drivers */
 
@@ -258,6 +243,9 @@
 #define BSP_USING_UART
 #define BSP_USING_UART1
 #define BSP_USING_UART3
+#define BSP_USING_UART6
+#define BSP_USING_SPI
+#define BSP_USING_SPI2
 #define BSP_USING_USBD_FS
 #define BSP_USING_USBD_FS_DEVICE
 #define BSP_USING_FMC
