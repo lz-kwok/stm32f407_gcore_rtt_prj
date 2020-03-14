@@ -40,14 +40,15 @@ extern "C" {
 #define MCU_KOUT12                      GET_PIN(G, 4)
 #define MCU_KOUT13                      GET_PIN(G, 3)
 #define MCU_KOUT14                      GET_PIN(D, 13)
+// #define MCU_KOUT14                      GET_PIN(G, 3)
 #define MCU_KOUT15                      GET_PIN(G, 2)
 #define MCU_KOUT16                      GET_PIN(E, 12)
 
 
 
 
-#define FAULT1                          GET_PIN(B, 0)
-#define FAULT2                          GET_PIN(B, 1)
+#define FAULT1                          GET_PIN(F, 5)
+#define FAULT2                          GET_PIN(F, 3)
 #define FAULT3                          GET_PIN(F, 12)
 
 typedef enum  {

@@ -17,7 +17,7 @@ extern "C" {
 #define RT_CONFIG_USB_CDC               1
 #define RT_CONFIG_UART3                 0
 
-#define RT_MANAGER_THREAD_STACK_SZ      1024
+#define RT_MANAGER_THREAD_STACK_SZ      2048
 #define RT_MANAGER_THREAD_PRIO          5
 #define MANAGER_MQ_MSG_SZ               16
 #define MANAGER_MQ_MAX_MSG              8
@@ -38,8 +38,10 @@ typedef struct {
 	float out_efficiency;
 	float delta_voltage_percent;
 	rt_uint8_t ErrorCode;
-	rt_uint8_t IOStatus;
+	rt_uint8_t IOStatus_h;
+	rt_uint8_t IOStatus_l;
 	rt_uint8_t AutoCheck;
+	rt_uint8_t calibration_index;
 }MesureManager;
 extern MesureManager mMesureManager;
 

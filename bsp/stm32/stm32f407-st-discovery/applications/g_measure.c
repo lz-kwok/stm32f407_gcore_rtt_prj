@@ -88,7 +88,8 @@ static void g_measure_manager_entry(void *param)
                 }
                 rt_pin_write(MCU_KOUT11, PIN_HIGH);
                 rt_pin_write(MCU_KOUT9, PIN_HIGH);
-
+                hal_SetBit(mMesureManager.IOStatus_h,6);
+                hal_SetBit(mMesureManager.IOStatus_l,0);
                 mMesureManager.dpsp1000_Onoff = 1;                   //打开程控电源
                 g_uart_sendto_Dpsp((const rt_uint8_t *)"OUTP ON"); 
                 rt_thread_mdelay(1000);
@@ -126,7 +127,7 @@ void g_MeasureQueue_send(rt_uint8_t type, const char *content)
     struct hal_message g_msg;
     g_msg.what = type;
     g_msg.content = (void *)content;
-    g_msg.freecb = NULL;
+    g_msg.freecb = rt_free;
 
     rt_mq_send(&g_measure_mq, (void*)&g_msg, sizeof(struct hal_message));
 }
