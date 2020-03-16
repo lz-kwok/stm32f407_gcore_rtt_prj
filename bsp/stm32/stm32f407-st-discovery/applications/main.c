@@ -203,7 +203,7 @@ int main(void)
         mMesureManager.dc_current = (float)(pow((((float)cur_in_dc)/100),4)*(8.5708396) + pow((((float)cur_in_dc)/100),3)*(-24.62919753) + pow((((float)cur_in_dc)/100),2)*(21.76179567) + (((float)cur_in_dc)/100)*20.040155697 + 0.4183661)*100;
         
         if(mMesureManager.step == 4){
-            mMesureManager.dc_voltage -= 200;
+            mMesureManager.dc_voltage -= 100;
         }
         
         mMesureManager.dc_energy = mMesureManager.dc_voltage*mMesureManager.dc_current;
