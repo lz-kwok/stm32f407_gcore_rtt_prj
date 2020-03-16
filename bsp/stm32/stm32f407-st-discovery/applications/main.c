@@ -198,14 +198,19 @@ int main(void)
         // mMesureManager.dc_voltage = (float)(pow((((float)vol_in_dc)/100),4)*30.4926 - pow((((float)vol_in_dc)/100),3)*136.5641 + pow((((float)vol_in_dc)/100),2)*223.037769 - (((float)vol_in_dc)/100)*79.26763 + 39.50018518)*100;
         // mMesureManager.dc_current = (float)(pow((((float)cur_in_dc)/100),4)*18.84766 - pow((((float)cur_in_dc)/100),3)*64.4949 + pow((((float)cur_in_dc)/100),2)*73.5637 - (((float)cur_in_dc)/100)*5.40951293 + 4.13974)*100;
 
-        mMesureManager.dc_voltage = (float)(pow((((float)cur_in_dc)/100),4)*(3.069894) + pow((((float)cur_in_dc)/100),3)*(-8.142747) + pow((((float)cur_in_dc)/100),2)*6.134929 + (((float)cur_in_dc)/100)*83.3695625 - 0.8885)*100;
+        // mMesureManager.dc_voltage = (float)((((float)cur_in_dc)/100)*85.615 - 1.9075)*100;
+        mMesureManager.dc_voltage = (float)(pow((((float)vol_in_dc)/100),4)*(3.069894) + pow((((float)vol_in_dc)/100),3)*(-8.142747) + pow((((float)vol_in_dc)/100),2)*6.134929 + (((float)vol_in_dc)/100)*83.3695625 - 0.8885)*100;
         mMesureManager.dc_current = (float)(pow((((float)cur_in_dc)/100),4)*(8.5708396) + pow((((float)cur_in_dc)/100),3)*(-24.62919753) + pow((((float)cur_in_dc)/100),2)*(21.76179567) + (((float)cur_in_dc)/100)*20.040155697 + 0.4183661)*100;
+        
+        if(mMesureManager.step == 4){
+            mMesureManager.dc_voltage -= 200;
+        }
+        
         mMesureManager.dc_energy = mMesureManager.dc_voltage*mMesureManager.dc_current;
         if(mMesureManager.dc_energy != 0.0){
             mMesureManager.out_efficiency = (mMesureManager.ac_energy/mMesureManager.dc_energy)*10000;
         }
-
-
+        
         
         data_measure[0] = 0x0d;
         data_measure[1] = 0xe0;
@@ -216,10 +221,6 @@ int main(void)
         data_measure[6] = ((rt_uint16_t)mMesureManager.dc_current)%100;
         data_measure[7] = ((rt_uint16_t)mMesureManager.ac_voltage)/100;
         data_measure[8] = ((rt_uint16_t)mMesureManager.ac_voltage)%100;
-
-        if(mMesureManager.step == 4){
-            data_measure[3] -= 2;
-        }
 
         if(mMesureManager.step == 10){
             if(tmp_cur < mMesureManager.ac_current){

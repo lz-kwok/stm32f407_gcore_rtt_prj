@@ -235,6 +235,18 @@ static void usb_cdc_entry(void *param)
                 case 0xF9:
                         mMesureManager.AutoCheck = 1;
                         if(dataRecv[2] == 0x01){
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
                             g_usb_pin_control(Load_None_ON);
                         }else if(dataRecv[2] == 0x02){
                             mMesureManager.ErrorCode = 0;
@@ -248,7 +260,18 @@ static void usb_cdc_entry(void *param)
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
                             hal_ResetBit(mMesureManager.IOStatus_h,7);
                             hal_ResetBit(mMesureManager.IOStatus_l,0);
-                            rt_thread_mdelay(500);
+                            for(;;){
+                                u_index++;
+                                rt_thread_mdelay(2000);
+                                if(mMesureManager.ac_voltage > 21000.0){
+                                    u_index = 0;
+                                    break;
+                                }
+                                if(u_index == 10){
+                                    u_index = 0;
+                                    break;
+                                }
+                            }
                             g_usb_pin_control(Efficiency_ON);
                         }else if(dataRecv[2] == 0x03){
                             mMesureManager.ErrorCode = 0;
