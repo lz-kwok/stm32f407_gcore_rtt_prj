@@ -312,11 +312,13 @@ int main(void)
                                 mMesureManager.step = 0;
                                 rt_pin_write(MCU_KOUT6, PIN_LOW);
                                 rt_pin_write(MCU_KOUT7, PIN_LOW);
+                                rt_pin_write(MCU_KOUT8, PIN_LOW);
                                 rt_pin_write(MCU_KOUT9, PIN_LOW);
                                 rt_pin_write(MCU_KOUT10, PIN_LOW);
                                 rt_pin_write(MCU_KOUT11, PIN_LOW);
                                 hal_ResetBit(mMesureManager.IOStatus_h,3);
                                 hal_ResetBit(mMesureManager.IOStatus_h,4);
+                                hal_ResetBit(mMesureManager.IOStatus_h,5);
                                 hal_ResetBit(mMesureManager.IOStatus_h,6);
                                 hal_ResetBit(mMesureManager.IOStatus_h,7);
                                 hal_ResetBit(mMesureManager.IOStatus_l,0);
@@ -330,12 +332,12 @@ int main(void)
                             if(send_num_total == 4){
                                 send_num_total = 0;
                                 mMesureManager.step = 0;
-                                rt_pin_write(MCU_KOUT6, PIN_HIGH);
-                                rt_pin_write(MCU_KOUT7, PIN_HIGH);
-                                rt_pin_write(MCU_KOUT8, PIN_HIGH);
-                                rt_pin_write(MCU_KOUT9, PIN_HIGH);
-                                rt_pin_write(MCU_KOUT10, PIN_HIGH);
-                                rt_pin_write(MCU_KOUT11, PIN_HIGH);
+                                rt_pin_write(MCU_KOUT6, PIN_LOW);
+                                rt_pin_write(MCU_KOUT7, PIN_LOW);
+                                rt_pin_write(MCU_KOUT8, PIN_LOW);
+                                rt_pin_write(MCU_KOUT9, PIN_LOW);
+                                rt_pin_write(MCU_KOUT10, PIN_LOW);
+                                rt_pin_write(MCU_KOUT11, PIN_LOW);
 
                                 hal_ResetBit(mMesureManager.IOStatus_h,3);
                                 hal_ResetBit(mMesureManager.IOStatus_h,4);
@@ -467,11 +469,13 @@ int main(void)
             if(ctr_done == 0){
                 ctr_done = 1;
                 if(mMesureManager.step == 2){
+                    rt_pin_write(MCU_KOUT6, PIN_LOW);
                     rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                     rt_pin_write(MCU_KOUT8, PIN_LOW);
                     rt_pin_write(MCU_KOUT9, PIN_LOW);
                     rt_pin_write(MCU_KOUT10, PIN_LOW);
                     rt_pin_write(MCU_KOUT11, PIN_LOW);
+                    hal_ResetBit(mMesureManager.IOStatus_h,3);
                     hal_ResetBit(mMesureManager.IOStatus_h,4);
                     hal_ResetBit(mMesureManager.IOStatus_h,5);
                     hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -480,11 +484,13 @@ int main(void)
                     rt_thread_mdelay(500);
                     g_usb_pin_control(Load_1_5kW_ON);
                 }else if(mMesureManager.step == 3){
+                    rt_pin_write(MCU_KOUT6, PIN_LOW);
                     rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                     rt_pin_write(MCU_KOUT8, PIN_LOW);
                     rt_pin_write(MCU_KOUT9, PIN_LOW);
                     rt_pin_write(MCU_KOUT10, PIN_LOW);
                     rt_pin_write(MCU_KOUT11, PIN_LOW);
+                    hal_ResetBit(mMesureManager.IOStatus_h,3);
                     hal_ResetBit(mMesureManager.IOStatus_h,4);
                     hal_ResetBit(mMesureManager.IOStatus_h,5);
                     hal_ResetBit(mMesureManager.IOStatus_h,6);

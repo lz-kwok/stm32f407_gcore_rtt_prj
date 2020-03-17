@@ -46,6 +46,7 @@ static void usb_cdc_entry(void *param)
                 switch(dataRecv[1])
                 {
                     case 0xFE:       //查询版本
+                        mMesureManager.inverterType = dataRecv[2];
                         sendBuf[1] = dataRecv[1];
                         sendBuf[2] = MajorVer;
                         sendBuf[3] = MiddleVer;
@@ -199,38 +200,6 @@ static void usb_cdc_entry(void *param)
                             hal_ResetBit(mMesureManager.IOStatus_l,0);
                         }
                         g_usb_cdc_sendData(dataRecv,recvLen);      
-                    break;
-                    case 0xFA:       //源效应电压设置
-                        if(dataRecv[2] == 0x01){
-                            g_uart_sendto_Dpsp("VOLT 70.0");
-                        }else if(dataRecv[2] == 0x02){
-                            g_uart_sendto_Dpsp("VOLT 100.0");
-                            rt_thread_mdelay(1000);
-                            dpsp_vol_set_H = 94.0;
-                            for(;;){
-                                memset(dpsp_cmd,0x0,32);
-                                dpsp_vol_set_H -= 1.0;
-                                if(dpsp_vol_set_H < 81.0){
-                                   break;
-                                }
-                                sprintf((char *)dpsp_cmd,"VOLT %.1f",dpsp_vol_set_H);
-                                g_uart_sendto_Dpsp(dpsp_cmd);
-                                rt_thread_mdelay(1000);
-                            }
-                            g_uart_sendto_Dpsp("VOLT 80.0");
-                            rt_thread_mdelay(1000);
-                            mMesureManager.step = 5;
-                        }else if(dataRecv[2] == 0x03){
-                            mMesureManager.step = 6;
-                            g_uart_sendto_Dpsp("VOLT 110.0");
-                        }else if(dataRecv[2] == 0x04){
-                            mMesureManager.step = 7;
-                            g_uart_sendto_Dpsp("VOLT 137.5");
-                        }else if(dataRecv[2] == 0x05){
-                            g_uart_sendto_Dpsp("VOLT 142.0");
-                        }                         
-                        g_usb_cdc_sendData(dataRecv,recvLen);     
-                        rt_thread_mdelay(1000); 
                     break;
                 case 0xF9:
                         mMesureManager.AutoCheck = 1;
@@ -555,7 +524,6 @@ static void usb_cdc_entry(void *param)
                                 }
                             }
                             rt_thread_mdelay(1000);
-                            // g_set_dpsp_vol(110.0);
                             g_usb_pin_control(Load_Short_Circuit_ON);
                         }else if(dataRecv[2] == 0x09){           //反接&
                             mMesureManager.ErrorCode = 0x0;
@@ -979,10 +947,23 @@ void g_usb_pin_control(relaycmd cmd)
         mMesureManager.step = 0;
     }else if(cmd == Load_1_5kW_ON){
         mMesureManager.step = 2;
-        rt_pin_write(MCU_KOUT8, PIN_HIGH);
-        rt_pin_write(MCU_KOUT9, PIN_HIGH);
-        hal_SetBit(mMesureManager.IOStatus_h,5);
-        hal_SetBit(mMesureManager.IOStatus_h,6);
+        if(mMesureManager.inverterType == type_3_5NB){
+            rt_pin_write(MCU_KOUT8, PIN_HIGH);
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,5);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+        }else if(mMesureManager.inverterType == type_2_5NB){
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+        }else if(mMesureManager.inverterType == type_4_0NB){
+            rt_pin_write(MCU_KOUT6, PIN_HIGH);
+            rt_pin_write(MCU_KOUT8, PIN_HIGH);
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,3);
+            hal_SetBit(mMesureManager.IOStatus_h,5);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+        }
+        
     }else if(cmd == Load_1_5kW_OFF){
         mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT8, PIN_LOW);
@@ -991,10 +972,25 @@ void g_usb_pin_control(relaycmd cmd)
         hal_ResetBit(mMesureManager.IOStatus_h,6);
     }else if(cmd == Load_3kW_ON){
         mMesureManager.step = 3;
-        rt_pin_write(MCU_KOUT11, PIN_HIGH);
-        rt_pin_write(MCU_KOUT9, PIN_HIGH);
-        hal_SetBit(mMesureManager.IOStatus_h,6);
-        hal_SetBit(mMesureManager.IOStatus_l,0);
+        if(mMesureManager.inverterType == type_3_5NB){
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }else if(mMesureManager.inverterType == type_2_5NB){
+            rt_pin_write(MCU_KOUT8, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,5);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }else if(mMesureManager.inverterType == type_4_0NB){
+            rt_pin_write(MCU_KOUT7, PIN_HIGH);
+            rt_pin_write(MCU_KOUT10, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,4);
+            hal_SetBit(mMesureManager.IOStatus_h,7);
+            hal_SetBit(mMesureManager.IOStatus_h,0);
+        }
+        
     }else if(cmd == Load_3kW_OFF){
         mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT11, PIN_LOW);
@@ -1034,16 +1030,39 @@ void g_usb_pin_control(relaycmd cmd)
         hal_ResetBit(mMesureManager.IOStatus_h,1);
     }else if(cmd == Load_Over_ON){      //3-0 4-1 5-2 6-3 7-4 8-5 9-6 10-7 11-0 12-1 
         mMesureManager.step = 10;
-        rt_pin_write(MCU_KOUT6, PIN_HIGH);
-        rt_pin_write(MCU_KOUT7, PIN_HIGH);
-        rt_pin_write(MCU_KOUT9, PIN_HIGH);
-        rt_pin_write(MCU_KOUT10, PIN_HIGH);
-        rt_pin_write(MCU_KOUT11, PIN_HIGH);
-        hal_SetBit(mMesureManager.IOStatus_h,3);
-        hal_SetBit(mMesureManager.IOStatus_h,4);
-        hal_SetBit(mMesureManager.IOStatus_h,6);
-        hal_SetBit(mMesureManager.IOStatus_h,7);
-        hal_SetBit(mMesureManager.IOStatus_l,0);
+        if(mMesureManager.inverterType == type_3_5NB){
+            rt_pin_write(MCU_KOUT6, PIN_HIGH);
+            rt_pin_write(MCU_KOUT7, PIN_HIGH);
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            rt_pin_write(MCU_KOUT10, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,3);
+            hal_SetBit(mMesureManager.IOStatus_h,4);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+            hal_SetBit(mMesureManager.IOStatus_h,7);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }else if(mMesureManager.inverterType == type_2_5NB){
+            rt_pin_write(MCU_KOUT7, PIN_HIGH);
+            rt_pin_write(MCU_KOUT10, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,4);
+            hal_SetBit(mMesureManager.IOStatus_h,7);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }else if(mMesureManager.inverterType == type_4_0NB){
+            rt_pin_write(MCU_KOUT6, PIN_HIGH);
+            rt_pin_write(MCU_KOUT7, PIN_HIGH);
+            rt_pin_write(MCU_KOUT8, PIN_HIGH);
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            rt_pin_write(MCU_KOUT10, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,3);
+            hal_SetBit(mMesureManager.IOStatus_h,4);
+            hal_SetBit(mMesureManager.IOStatus_h,5);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+            hal_SetBit(mMesureManager.IOStatus_h,7);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }
+        
     }else if(cmd == Load_Over_OFF){
         mMesureManager.step = 0;
         rt_pin_write(MCU_KOUT6, PIN_LOW);

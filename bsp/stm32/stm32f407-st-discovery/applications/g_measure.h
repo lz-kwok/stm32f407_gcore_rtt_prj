@@ -22,6 +22,8 @@ extern "C" {
 #define MANAGER_MQ_MSG_SZ               16
 #define MANAGER_MQ_MAX_MSG              8
 
+
+
 typedef struct {
 	rt_uint8_t dpsp1000_Onoff;
 	rt_uint8_t autoChecktype;
@@ -42,6 +44,7 @@ typedef struct {
 	rt_uint8_t IOStatus_l;
 	rt_uint8_t AutoCheck;
 	rt_uint8_t calibration_index;
+	rt_uint8_t inverterType;
 }MesureManager;
 extern MesureManager mMesureManager;
 
@@ -50,6 +53,12 @@ typedef enum{
 	m_StartTime = 1,
 	uart6_rx_signal
 }msg_type;
+
+typedef enum{
+	type_2_5NB = 1,
+	type_3_5NB = 2,
+	type_4_0NB = 3
+}inverter_type;
 
 #define hal_SetBit(data, offset)      data |= 1 << offset      //置位某位为1
 #define hal_ResetBit(data, offset)    data &= ~(1 << offset)   //复位某位为0
