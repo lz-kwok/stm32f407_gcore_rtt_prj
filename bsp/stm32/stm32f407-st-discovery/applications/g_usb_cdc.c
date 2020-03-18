@@ -51,6 +51,7 @@ static void usb_cdc_entry(void *param)
                         sendBuf[2] = MajorVer;
                         sendBuf[3] = MiddleVer;
                         sendBuf[4] = MinnorVer;
+                        sendBuf[4] = mMesureManager.inverterType;
                         g_usb_cdc_sendData(sendBuf, 10);
                     break;
                     case 0xFD:       //接触器控制
