@@ -205,7 +205,7 @@ int main(void)
         if(mMesureManager.step == 4){
             mMesureManager.dc_voltage -= 100;
         }
-        
+
         mMesureManager.dc_energy = mMesureManager.dc_voltage*mMesureManager.dc_current;
         if(mMesureManager.dc_energy != 0.0){
             mMesureManager.out_efficiency = (mMesureManager.ac_energy/mMesureManager.dc_energy)*10000;
@@ -224,8 +224,12 @@ int main(void)
 
         if(mMesureManager.step == 10){
             if(tmp_cur < mMesureManager.ac_current){
+                if(mMesureManager.inverterType == 3){
+                    mMesureManager.ac_current += 40;
+                }
                 tmp_cur = mMesureManager.ac_current;
                 mMesureManager.ac_current = tmp_cur;
+                
                 data_measure[9] = ((rt_uint16_t)tmp_cur)/100;
                 data_measure[10] = ((rt_uint16_t)tmp_cur)%100;
             }
@@ -241,7 +245,7 @@ int main(void)
         data_measure[14] = ((rt_uint16_t)mMesureManager.out_efficiency)%100;
         data_measure[15] = mMesureManager.ErrorCode;
         data_measure[16] = send_num_total;
-        data_measure[17] = 0x0;
+        data_measure[17] = mMesureManager.inverterType;
         data_measure[18] = mMesureManager.AutoCheck;
         data_measure[19] = 0x0d;
         index ++;

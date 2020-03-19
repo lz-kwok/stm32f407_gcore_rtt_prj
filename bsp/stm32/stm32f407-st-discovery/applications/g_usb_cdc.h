@@ -49,7 +49,7 @@ extern "C" {
 
 #define FAULT1                          GET_PIN(F, 5)
 #define FAULT2                          GET_PIN(F, 3)
-#define FAULT3                          GET_PIN(F, 12)
+#define FAULT3                          GET_PIN(F, 6)
 
 typedef enum  {
   Load_1_5kW_ON         = 1,

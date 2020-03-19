@@ -220,11 +220,13 @@ static void usb_cdc_entry(void *param)
                             g_usb_pin_control(Load_None_ON);
                         }else if(dataRecv[2] == 0x02){
                             mMesureManager.ErrorCode = 0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -246,11 +248,13 @@ static void usb_cdc_entry(void *param)
                         }else if(dataRecv[2] == 0x03){
                             mMesureManager.ErrorCode = 0;
                             mMesureManager.step = 0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -275,10 +279,24 @@ static void usb_cdc_entry(void *param)
                                 }
                             }
                             rt_thread_mdelay(1000);
-                            rt_pin_write(MCU_KOUT11, PIN_HIGH);
-                            rt_pin_write(MCU_KOUT9, PIN_HIGH);
-                            hal_SetBit(mMesureManager.IOStatus_l,0);
-                            hal_SetBit(mMesureManager.IOStatus_h,6);
+                            if(mMesureManager.inverterType == 2){
+                                rt_pin_write(MCU_KOUT11, PIN_HIGH);
+                                rt_pin_write(MCU_KOUT9, PIN_HIGH);
+                                hal_SetBit(mMesureManager.IOStatus_h,6);
+                                hal_SetBit(mMesureManager.IOStatus_l,0);
+                            }if(mMesureManager.inverterType == 3){
+                                rt_pin_write(MCU_KOUT7, PIN_HIGH);
+                                rt_pin_write(MCU_KOUT10, PIN_HIGH);
+                                rt_pin_write(MCU_KOUT11, PIN_HIGH);
+                                hal_SetBit(mMesureManager.IOStatus_h,4);
+                                hal_SetBit(mMesureManager.IOStatus_h,7);
+                                hal_SetBit(mMesureManager.IOStatus_l,0);
+                            }else{
+                                rt_pin_write(MCU_KOUT8, PIN_HIGH);
+                                rt_pin_write(MCU_KOUT11, PIN_HIGH);
+                                hal_SetBit(mMesureManager.IOStatus_h,5);
+                                hal_SetBit(mMesureManager.IOStatus_l,0);
+                            }
                             rt_thread_mdelay(2000);
                             g_uart_sendto_Dpsp("VOLT 108.0");
                             rt_thread_mdelay(2000);
@@ -302,11 +320,13 @@ static void usb_cdc_entry(void *param)
                             mMesureManager.step = 5;
                         }else if(dataRecv[2] == 0x04){           //欠压
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -345,11 +365,13 @@ static void usb_cdc_entry(void *param)
                             g_usb_pin_control(Undervoltage_ON);
                         }else if(dataRecv[2] == 0x05){           //过压
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -389,11 +411,13 @@ static void usb_cdc_entry(void *param)
                             g_usb_pin_control(Overvoltage_ON);
                         }else if(dataRecv[2] == 0x06){           //过载
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -434,11 +458,13 @@ static void usb_cdc_entry(void *param)
                             if(dataRecv[3] == 0x00){
                                 mMesureManager.ErrorCode = 0x0;
                                 mMesureManager.step = 11;
+                                rt_pin_write(MCU_KOUT6, PIN_LOW);
                                 rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                                 rt_pin_write(MCU_KOUT8, PIN_LOW);
                                 rt_pin_write(MCU_KOUT9, PIN_LOW);
                                 rt_pin_write(MCU_KOUT10, PIN_LOW);
                                 rt_pin_write(MCU_KOUT11, PIN_LOW);
+                                hal_ResetBit(mMesureManager.IOStatus_h,3);
                                 hal_ResetBit(mMesureManager.IOStatus_h,4);
                                 hal_ResetBit(mMesureManager.IOStatus_h,5);
                                 hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -487,11 +513,13 @@ static void usb_cdc_entry(void *param)
                             // g_usb_pin_control(OverCurrent_ON);
                         }else if(dataRecv[2] == 0x08){           //短路
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -528,12 +556,14 @@ static void usb_cdc_entry(void *param)
                             g_usb_pin_control(Load_Short_Circuit_ON);
                         }else if(dataRecv[2] == 0x09){           //反接&
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
                             rt_pin_write(MCU_KOUT12, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -627,12 +657,14 @@ static void usb_cdc_entry(void *param)
                             // g_usb_pin_control(Load_Reverse_ON);
                         }else if(dataRecv[2] == 0x0A){                  //启动时间
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
                             rt_pin_write(MCU_KOUT12, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -690,11 +722,13 @@ static void usb_cdc_entry(void *param)
                             mMesureManager.step = 22;
                         }else if(dataRecv[2] == 0x0B){           //带吸尘器启动
                             mMesureManager.ErrorCode = 0x0;
+                            rt_pin_write(MCU_KOUT6, PIN_LOW);
                             rt_pin_write(MCU_KOUT7, PIN_LOW);    //每次执行前先置所有负载控制器单元为断开状态
                             rt_pin_write(MCU_KOUT8, PIN_LOW);
                             rt_pin_write(MCU_KOUT9, PIN_LOW);
                             rt_pin_write(MCU_KOUT10, PIN_LOW);
                             rt_pin_write(MCU_KOUT11, PIN_LOW);
+                            hal_ResetBit(mMesureManager.IOStatus_h,3);
                             hal_ResetBit(mMesureManager.IOStatus_h,4);
                             hal_ResetBit(mMesureManager.IOStatus_h,5);
                             hal_ResetBit(mMesureManager.IOStatus_h,6);
@@ -974,8 +1008,8 @@ void g_usb_pin_control(relaycmd cmd)
     }else if(cmd == Load_3kW_ON){
         mMesureManager.step = 3;
         if(mMesureManager.inverterType == type_3_5NB){
-            rt_pin_write(MCU_KOUT11, PIN_HIGH);
             rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
             hal_SetBit(mMesureManager.IOStatus_h,6);
             hal_SetBit(mMesureManager.IOStatus_l,0);
         }else if(mMesureManager.inverterType == type_2_5NB){
@@ -989,7 +1023,7 @@ void g_usb_pin_control(relaycmd cmd)
             rt_pin_write(MCU_KOUT11, PIN_HIGH);
             hal_SetBit(mMesureManager.IOStatus_h,4);
             hal_SetBit(mMesureManager.IOStatus_h,7);
-            hal_SetBit(mMesureManager.IOStatus_h,0);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
         }
         
     }else if(cmd == Load_3kW_OFF){
@@ -1000,16 +1034,24 @@ void g_usb_pin_control(relaycmd cmd)
         hal_ResetBit(mMesureManager.IOStatus_l,0);
     }else if(cmd == Efficiency_ON){
         mMesureManager.step = 4;
-        rt_pin_write(MCU_KOUT11, PIN_HIGH);
-        rt_pin_write(MCU_KOUT9, PIN_HIGH);
-        hal_SetBit(mMesureManager.IOStatus_h,6);
-        hal_SetBit(mMesureManager.IOStatus_l,0);
-    }else if(cmd == Efficiency_OFF){
-        mMesureManager.step = 0;
-        rt_pin_write(MCU_KOUT11, PIN_LOW);
-        rt_pin_write(MCU_KOUT9, PIN_LOW);
-        hal_ResetBit(mMesureManager.IOStatus_h,6);
-        hal_ResetBit(mMesureManager.IOStatus_l,0);
+        if(mMesureManager.inverterType == 2){
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            rt_pin_write(MCU_KOUT9, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,6);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }if(mMesureManager.inverterType == 3){
+            rt_pin_write(MCU_KOUT7, PIN_HIGH);
+            rt_pin_write(MCU_KOUT10, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,4);
+            hal_SetBit(mMesureManager.IOStatus_h,7);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }else{
+            rt_pin_write(MCU_KOUT8, PIN_HIGH);
+            rt_pin_write(MCU_KOUT11, PIN_HIGH);
+            hal_SetBit(mMesureManager.IOStatus_h,5);
+            hal_SetBit(mMesureManager.IOStatus_l,0);
+        }
     }else if(cmd == Undervoltage_ON){
         mMesureManager.step = 8;
         vol_set = 1;
