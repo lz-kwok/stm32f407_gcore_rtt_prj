@@ -14,9 +14,9 @@
 extern "C" {
 #endif
 
-#define MajorVer            1
+#define MajorVer            2
 #define MiddleVer           0
-#define MinnorVer           0
+#define MinnorVer           12
 
 
 #define RT_USB_CDC_THREAD_STACK_SZ      2048
