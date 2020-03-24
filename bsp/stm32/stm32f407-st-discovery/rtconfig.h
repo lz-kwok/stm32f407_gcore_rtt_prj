@@ -78,11 +78,7 @@
 #define DFS_FILESYSTEMS_MAX 2
 #define DFS_FILESYSTEM_TYPES_MAX 2
 #define DFS_FD_MAX 4
-#define RT_USING_DFS_MNTTABLE
 #define RT_USING_DFS_DEVFS
-#define RT_USING_DFS_UFFS
-#define RT_UFFS_ECC_MODE_1
-#define RT_UFFS_ECC_MODE 1
 
 /* Device Drivers */
 
@@ -197,7 +193,11 @@
 
 /* GUI Features */
 
-#define RT_USING_NANOGUI
+
+/* ARM RL Components */
+
+#define RT_USING_RL_ARM
+#define RT_USING_RL_FLASHFS
 
 /* RT-Thread online packages */
 
@@ -249,8 +249,6 @@
 
 #define PHY_USING_LAN8720A
 #define BSP_USING_ETH
-#define BSP_USING_GPRS
-#define BSP_USING_AIR202
 
 /* On-chip Peripheral Drivers */
 

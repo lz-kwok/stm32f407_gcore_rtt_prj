@@ -1,0 +1,22 @@
+# RT-Thread building script for bridge
+
+import os
+from building import *
+
+src = Split('''
+Config/File_Config.c
+''')
+cwd = GetCurrentDir()
+
+CPPPATH = [cwd + "/RL-RTX/inc"]
+CPPPATH += [cwd + "/Config"]
+list = os.listdir(cwd)
+
+group = DefineGroup('RL_ARM', src, depend = ['RT_USING_RL_ARM'], CPPPATH = CPPPATH)
+
+for d in list:
+    path = os.path.join(cwd, d)
+    if os.path.isfile(os.path.join(path, 'SConscript')):
+        group = group + SConscript(os.path.join(d, 'SConscript'))
+
+Return('group')

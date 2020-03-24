@@ -15,9 +15,9 @@
 #define PAGE_OOB_SIZE           64
 #define NAND_MARK_SPARE_OFFSET  4
 
-#define NAND_PAGE_SIZE    (2048)
+#define NAND_PAGE_SIZE          (2048)
 
-
+#define NAND_PAGE_TOTAL_SIZE    528
 
 struct stm32f4_nand
 {
@@ -98,6 +98,8 @@ extern nand_attriute nand_dev;				//nand重要参数结构体
 #define W29N02GVSIAA			0xefda9095	//W29N02GVSIAA
 
  
+void rt_hw_mtd_nand_deinit(void);
+
 rt_uint8_t NAND_ModeSet(rt_uint8_t mode);
 rt_uint32_t NAND_ReadID(void);
 rt_uint8_t NAND_ReadStatus(void);
@@ -119,4 +121,6 @@ void NAND_EraseChip(void);
 rt_uint16_t NAND_ECC_Get_OE(rt_uint8_t oe,rt_uint32_t eccval);
 rt_uint8_t NAND_ECC_Correction(rt_uint8_t* data_buf,rt_uint32_t eccrd,rt_uint32_t ecccl);
 
+rt_uint8_t FSMC_NAND_ReadPage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead);
+rt_uint8_t FSMC_NAND_WritePage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead);
 #endif /* __K9F2G08U0B_H__ */

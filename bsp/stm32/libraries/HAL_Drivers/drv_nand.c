@@ -126,30 +126,35 @@ static struct rt_mtd_nand_driver_ops ops =
 #endif
 };
 
+void rt_hw_mtd_nand_deinit(void)
+{
+    HAL_NAND_DeInit(&NAND_Handler);
+}
 
 
 //初始化NAND FLASH
 rt_uint8_t rt_hw_mtd_nand_init(void)
 {
+    rt_kprintf("%s\r\n",__func__);
     FMC_NAND_PCC_TimingTypeDef ComSpaceTiming,AttSpaceTiming;
                                               
     NAND_Handler.Instance=FMC_NAND_DEVICE;
-    NAND_Handler.Init.NandBank=FSMC_NAND_BANK2;                          //NAND挂在BANK2上
-    NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_ENABLE;     //关闭等待特性
-    NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;     //8位数据宽度
-    NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;              //不使用ECC
-    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_2048BYTE;      //ECC页大小为2k
-    NAND_Handler.Init.TCLRSetupTime=0;                                  //设置TCLR(tCLR=CLE到RE的延时)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
-    NAND_Handler.Init.TARSetupTime=1;                                   //设置TAR(tAR=ALE到RE的延时)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5n。   
+    NAND_Handler.Init.NandBank=FSMC_NAND_BANK2;                             //NAND挂在BANK2上
+    NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_DISABLE;        //关闭等待特性
+    NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;        //8位数据宽度
+    NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;                 //不使用ECC
+    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_2048BYTE;         //ECC页大小为2k
+    NAND_Handler.Init.TCLRSetupTime=0;                                      //设置TCLR(tCLR=CLE到RE的延时)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
+    NAND_Handler.Init.TARSetupTime=1;                                       //设置TAR(tAR=ALE到RE的延时)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5n。   
    
     ComSpaceTiming.SetupTime=2;         //建立时间
-    ComSpaceTiming.WaitSetupTime=3;     //等待时间
-    ComSpaceTiming.HoldSetupTime=2;     //保持时间
+    ComSpaceTiming.WaitSetupTime=5;     //等待时间
+    ComSpaceTiming.HoldSetupTime=3;     //保持时间
     ComSpaceTiming.HiZSetupTime=1;      //高阻态时间
     
     AttSpaceTiming.SetupTime=2;         //建立时间
-    AttSpaceTiming.WaitSetupTime=3;     //等待时间
-    AttSpaceTiming.HoldSetupTime=2;     //保持时间
+    AttSpaceTiming.WaitSetupTime=5;     //等待时间
+    AttSpaceTiming.HoldSetupTime=3;     //保持时间
     AttSpaceTiming.HiZSetupTime=1;      //高阻态时间
     
     HAL_NAND_Init(&NAND_Handler,&ComSpaceTiming,&AttSpaceTiming); 
@@ -183,7 +188,7 @@ rt_uint8_t rt_hw_mtd_nand_init(void)
     }
     return 0;
 }
-INIT_DEVICE_EXPORT(rt_hw_mtd_nand_init);
+// INIT_DEVICE_EXPORT(rt_hw_mtd_nand_init);
 
 //读取NAND FLASH的ID
 //返回值:0,成功;
@@ -220,7 +225,7 @@ rt_uint32_t NAND_ReadID(void)
     deviceid[4]=*(rt_uint8_t*)NAND_ADDRESS;  
 
     id=((rt_uint32_t)deviceid[0])<<24|((rt_uint32_t)deviceid[1])<<16|((rt_uint32_t)deviceid[2])<<8|deviceid[3];
-    // NAND_DEBUG("NAND_ReadID = %08x",id);
+    NAND_DEBUG("NAND_ReadID = %08x\r\n",id);
 
     return id;
 }  
@@ -367,6 +372,41 @@ rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuf
     if(NAND_WaitForReady()!=NSTA_READY)errsta=NSTA_ERROR;	//失败
     return errsta;	//成功   
 } 
+
+
+rt_uint8_t FSMC_NAND_ReadPage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead)
+{
+	rt_uint32_t i;
+    rt_uint8_t res=0;
+
+     *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_usAddrInPage;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_usAddrInPage>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_ulPageNo;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>16);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
+
+	 /* 必须等待，否则读出数据异常, 此处应该判断超时 */
+	for (i = 0; i < 20; i++);
+//    res=NAND_WaitRB(0);			//等待RB=0 
+//    if(res)return NSTA_TIMEOUT;	//超时退出
+    //下面2行代码是真正判断NAND是否准备好的
+	res=NAND_WaitRB(1);			//等待RB=1 
+    if(res)return NSTA_TIMEOUT;	//超时退出
+
+
+	/* 读数据到缓冲区pBuffer */
+	for(i = 0; i < NumByteToRead; i++)
+	{
+		_pBuffer[i] = NAND_ADDRESS;
+	}
+
+	return RT_EOK;
+}
+
+
 //读取NAND Flash的指定页指定列的数据(main区和spare区都可以使用此函数),并对比(FTL管理时需要)
 //PageNum:要读取的页地址,范围:0~(block_pagenum*block_totalnum-1)
 //ColNum:要读取的列开始地址(也就是页内地址),范围:0~(page_totalsize-1)
@@ -470,6 +510,44 @@ rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBu
 	if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//失败
     return 0;//成功   
 }
+
+rt_uint8_t FSMC_NAND_WritePage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead)
+{
+	rt_uint32_t i;
+
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
+    //发送地址
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_usAddrInPage;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_usAddrInPage>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_ulPageNo;
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>8);
+    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>16);
+
+	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+	for(i = 0; i < NumByteToRead; i++)
+	{
+        *(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)_pBuffer++;
+	}
+
+	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
+
+	rt_thread_mdelay(NAND_TPROG_DELAY);	//等待tPROG
+	
+    if(NAND_WaitForReady() != NSTA_READY)return RT_ERROR;   //失败
+	
+	return RT_EOK;
+}
+
+
+
+
+
+
+
+
+
+
+
 //在NAND一页中的指定地址开始,写入指定长度的恒定数字
 //PageNum:要写入的页地址,范围:0~(block_pagenum*block_totalnum-1)
 //ColNum:要写入的列开始地址(也就是页内地址),范围:0~(page_totalsize-1)

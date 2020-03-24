@@ -1,0 +1,21 @@
+# RT-Thread building script for component
+
+from building import *
+
+cwd = GetCurrentDir()
+
+src = Glob('*.c')
+
+RLFlashFS = Split('''
+src/FS_NAND_FlashPrg.c
+lib/FSN_CM3.lib
+
+''')
+
+src = src + RLFlashFS
+ 
+CPPPATH = [cwd, cwd + '/inc']
+
+group = DefineGroup('RLFlashFS', src , depend = ['RT_USING_RL_ARM', 'RT_USING_RL_FLASHFS'], CPPPATH = CPPPATH)
+
+Return('group')

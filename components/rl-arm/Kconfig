@@ -1,0 +1,19 @@
+menu "ARM RL Components"
+
+config RT_USING_RL_ARM
+    bool "Using RL-ARM assembly"
+    default n
+    help
+        The RL-ARM is a third-part assembly
+
+if RT_USING_RL_ARM
+    config RT_USING_RL_FLASHFS
+        bool "Using RL-FlashFS"
+        default n
+
+    config RT_USING_RL_TCPnet
+        bool "Using RL-TCPnet"
+        default n
+endif
+
+endmenu
