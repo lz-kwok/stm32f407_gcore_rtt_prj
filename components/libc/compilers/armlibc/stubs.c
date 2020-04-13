@@ -21,6 +21,11 @@
 #include "dfs_posix.h"
 #endif
 
+#ifdef RT_USING_RL_FLASHFS
+#include <File_Config.h>
+struct __FILE { int handle; /* Add whatever you need here */ };
+#endif
+
 #ifdef __CLANG_ARM
 __asm(".global __use_no_semihosting\n\t");
 #else
@@ -28,9 +33,9 @@ __asm(".global __use_no_semihosting\n\t");
 #endif
 
 /* Standard IO device handles. */
-#define STDIN       0
-#define STDOUT      1
-#define STDERR      2
+#define STDIN       0x8001
+#define STDOUT      0x8002
+#define STDERR      0x8003
 
 /* Standard IO device name defines. */
 const char __stdin_name[]  = "STDIN";
@@ -61,7 +66,11 @@ FILEHANDLE _sys_open(const char *name, int openmode)
         return (STDERR);
 
 #ifndef RT_USING_DFS
-    return -1;
+    #ifdef RT_USING_RL_FLASHFS
+        return (__sys_open (name, openmode));
+    #else
+        return -1;
+    #endif
 #else
     /* Correct openmode from fopen to open */
     if (openmode & OPEN_PLUS)
@@ -100,7 +109,14 @@ FILEHANDLE _sys_open(const char *name, int openmode)
 int _sys_close(FILEHANDLE fh)
 {
 #ifndef RT_USING_DFS
-    return 0;
+    #ifdef RT_USING_RL_FLASHFS
+        if (fh > 0x8000) {
+            return (0);
+        }
+        return (__sys_close (fh));
+    #else
+        return 0;
+    #endif
 #else
     if (fh <= STDERR) return 0;
 
@@ -149,12 +165,20 @@ int _sys_read(FILEHANDLE fh, unsigned char *buf, unsigned len, int mode)
         return -1;
 #endif
     }
-
+#ifndef RT_USING_RL_FLASHFS
     if ((fh == STDOUT) || (fh == STDERR))
         return -1;
+#endif
 
 #ifndef RT_USING_DFS
+#ifdef RT_USING_RL_FLASHFS
+    if (fh > 0x8000) {
+        return (-1);
+    }
+    return (__sys_read (fh, buf, len));
+#else
     return 0;
+#endif
 #else
     size = read(fh, buf, len);
     if (size >= 0)
@@ -194,11 +218,18 @@ int _sys_write(FILEHANDLE fh, const unsigned char *buf, unsigned len, int mode)
 #endif
 #endif
     }
-
+#ifndef RT_USING_RL_FLASHFS
     if (fh == STDIN) return -1;
-
+#endif
 #ifndef RT_USING_DFS
+#ifdef RT_USING_RL_FLASHFS
+    if (fh > 0x8000) {
+        return (-1);
+    }
+    return (__sys_write (fh, buf, len));
+#else
     return 0;
+#endif
 #else
     size = write(fh, buf, len);
     if (size >= 0)
@@ -214,11 +245,19 @@ int _sys_write(FILEHANDLE fh, const unsigned char *buf, unsigned len, int mode)
  */
 int _sys_seek(FILEHANDLE fh, long pos)
 {
+#ifndef RT_USING_RL_FLASHFS
     if (fh < STDERR)
         return -1;
-
+#endif
 #ifndef RT_USING_DFS
+#ifdef RT_USING_RL_FLASHFS
+    if (fh > 0x8000) {
+        return (-1);
+    }
+    return (__sys_seek (fh, pos));
+#else
     return -1;
+#endif
 #else
 
     /* position is relative to the start of file fh */
@@ -231,13 +270,21 @@ int _sys_seek(FILEHANDLE fh, long pos)
  */
 int _sys_tmpnam(char *name, int fileno, unsigned maxlength)
 {
+#ifdef RT_USING_RL_FLASHFS
+    return 1;
+#else
     return -1;
+#endif
 }
 
 char *_sys_command_string(char *cmd, int len)
 {
+#ifdef RT_USING_RL_FLASHFS
+    return cmd;
+#else
     /* no support */
     return RT_NULL;
+#endif
 }
 
 /* This function writes a character to the console. */
@@ -266,12 +313,19 @@ RT_WEAK void _sys_exit(int return_code)
 long _sys_flen(FILEHANDLE fh)
 {
     struct stat stat;
-    
+#ifndef RT_USING_RL_FLASHFS   
     if (fh < STDERR)
         return -1;
-
+#endif
 #ifndef RT_USING_DFS
+#ifdef RT_USING_RL_FLASHFS
+    if (fh > 0x8000) {
+        return (0);
+    }
+    return (__sys_flen (fh));
+#else
     return -1;
+#endif
 #else
     fstat(fh, &stat);
     return stat.st_size;
@@ -280,10 +334,24 @@ long _sys_flen(FILEHANDLE fh)
 
 int _sys_istty(FILEHANDLE fh)
 {
+#ifdef RT_USING_RL_FLASHFS
+    if (fh > 0x8000) {
+        return (1);
+    }
+    return (0);
+#else
     if((STDIN <= fh) && (fh <= STDERR))
         return 1;
     else
         return 0;
+#endif
+}
+
+int _sys_ensure (FILEHANDLE fh) {
+  if (fh > 0x8000) {
+    return (-1);
+  }
+  return (__sys_ensure (fh));
 }
 
 int remove(const char *filename)

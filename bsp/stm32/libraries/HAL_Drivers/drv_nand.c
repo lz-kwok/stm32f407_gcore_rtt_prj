@@ -3,10 +3,13 @@
  * Date           Author           Notes
  * 2019-09-15     guolz      first implementation
  */
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
 #include <rtdevice.h>
 #include "board.h"
 #include "drv_nand.h"
-
+#include "File_Config.h"
 
 #define NAND_DEBUG    rt_kprintf
 
@@ -20,11 +23,24 @@
 #define NAND_BANK     ((rt_uint32_t)0x70000000)
 #define ECC_SIZE     4
 
-static struct stm32f4_nand _device;
-static struct rt_mtd_nand_device _partition[2];
+NAND_HandleTypeDef NAND_Handler;    //NAND FLASH¾ä±ú
 
-NAND_HandleTypeDef NAND_Handler;    //NAND FLASHå¥æŸ„
-nand_attriute nand_dev;             //nandé‡è¦å‚æ•°ç»“æ„ä½“
+#define Bank2_NAND_ADDR    ((uint32_t)0x70000000)
+#define Bank_NAND_ADDR     Bank2_NAND_ADDR
+
+#define NAND_CMD_AREA		*(__IO uint8_t *)(Bank_NAND_ADDR | CMD_AREA)
+#define NAND_ADDR_AREA		*(__IO uint8_t *)(Bank_NAND_ADDR | ADDR_AREA)
+#define NAND_DATA_AREA		*(__IO uint8_t *)(Bank_NAND_ADDR | DATA_AREA)
+
+static const char * ReVal_Table[]= 
+{
+	"0:Success",			                        
+	"1:IO error, I/O driver initialization failed, or no storage device, or device initialize failed",
+	"2:Volume error, Mount failed, which means invalid MBR, boot record or non fat format for fat file system",
+	"3:Fat log initialize failed, fat initialize succeeded, but log initialize failed",
+};
+
+
 static rt_err_t nandflash_readid(struct rt_mtd_nand_device *mtd)
 {
     NAND_IDTypeDef nand_id;
@@ -44,60 +60,24 @@ static rt_err_t nandflash_readpage(struct rt_mtd_nand_device* device, rt_off_t p
                                    rt_uint8_t *data, rt_uint32_t data_len,
                                    rt_uint8_t *spare, rt_uint32_t spare_len)
 {
-    rt_err_t result;
-    rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-    
-    result = NAND_ReadPage(page,0,data,data_len);
-    if(result == 0){
-        if (spare && spare_len){
-            NAND_ReadSpare(page,0,spare,spare_len);
-        }
-    }
- 
-    rt_mutex_release(&_device.lock);
-
-    return (result);
+     return (RT_MTD_EOK);
 }
 
 static rt_err_t nandflash_writepage(struct rt_mtd_nand_device* device, rt_off_t page,
                                     const rt_uint8_t *data, rt_uint32_t data_len,
                                     const rt_uint8_t *spare, rt_uint32_t spare_len)
 {
-    rt_err_t result;
-    rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-    
-    result = NAND_WritePage(page,0,(rt_uint8_t *)data,data_len);
-    if(result == 0){
-        if (spare && spare_len){
-            NAND_WriteSpare(page,0,(rt_uint8_t *)spare,spare_len);
-        }
-    }
- 
-    rt_mutex_release(&_device.lock);
-
-    return (result);
+     return (RT_MTD_EOK);
 }
 
 rt_err_t nandflash_eraseblock(struct rt_mtd_nand_device* device, rt_uint32_t block)
 {
-    rt_err_t result;
-
-    rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-    result = NAND_EraseBlock(block);
-    rt_mutex_release(&_device.lock);
-
-    return (result);
+     return (RT_MTD_EOK);
 }
 
 static rt_err_t nandflash_pagecopy(struct rt_mtd_nand_device *device, rt_off_t src_page, rt_off_t dst_page)
 {
-    rt_err_t result;
-
-    rt_mutex_take(&_device.lock, RT_WAITING_FOREVER);
-    result = NAND_CopyPageWithoutWrite(src_page,dst_page);
-    rt_mutex_release(&_device.lock);
-
-    return (result);
+     return (RT_MTD_EOK);
 }
 
 static rt_err_t nandflash_checkblock(struct rt_mtd_nand_device* device, rt_uint32_t block)
@@ -126,807 +106,917 @@ static struct rt_mtd_nand_driver_ops ops =
 #endif
 };
 
+
+
+static rt_uint8_t FSMC_NAND_ReadStatus(void)
+{
+	rt_uint8_t ucData;
+	rt_uint8_t ucStatus = NAND_BUSY;
+
+	NAND_CMD_AREA = NAND_CMD_STATUS;
+	ucData = *(__IO rt_uint8_t *)(Bank_NAND_ADDR);
+
+	if((ucData & NAND_ERROR) == NAND_ERROR)
+	{
+		ucStatus = NAND_ERROR;
+	}
+	else if((ucData & NAND_READY) == NAND_READY)
+	{
+		ucStatus = NAND_READY;
+	}
+	else
+	{
+		ucStatus = NAND_BUSY;
+	}
+
+	return (ucStatus);
+}
+
+static rt_uint8_t FSMC_NAND_GetStatus(void)
+{
+	rt_uint32_t ulTimeout = 0x10000;
+	rt_uint8_t ucStatus = NAND_READY;
+
+	ucStatus = FSMC_NAND_ReadStatus();
+
+	while ((ucStatus != NAND_READY) &&( ulTimeout != 0x00))
+	{
+		ucStatus = FSMC_NAND_ReadStatus();
+		if(ucStatus == NAND_ERROR)
+		{
+			return (ucStatus);
+		}
+		ulTimeout--;
+	}
+
+	if(ulTimeout == 0x00)
+	{
+		ucStatus =  NAND_TIMEOUT_ERROR;
+	}
+
+	return (ucStatus);
+}
+
+
+
+//¶ÁÈ¡NAND FLASHµÄID
+//²»Í¬µÄNANDÂÔÓĞ²»Í¬£¬Çë¸ù¾İ×Ô¼ºËùÊ¹ÓÃµÄNAND FALSHÊı¾İÊÖ²áÀ´±àĞ´º¯Êı
+//·µ»ØÖµ:NAND FLASHµÄIDÖµ
+static rt_uint32_t NAND_ReadID(void)
+{
+    NAND_IDTypeDef nand_id;
+
+    HAL_NAND_Read_ID(&NAND_Handler,&nand_id);
+
+    NAND_DEBUG("ID[%X,%X,%X,%X]\n",nand_id.Maker_Id,nand_id.Device_Id,nand_id.Third_Id,nand_id.Fourth_Id);
+
+    return 0;
+}  
+
+//¸´Î»NAND
+//·µ»ØÖµ:0,³É¹¦;
+//    ÆäËû,Ê§°Ü
+static rt_uint8_t NAND_Reset(void)
+{ 
+    NAND_CMD_AREA = NAND_RESET;	//¸´Î»NAND
+    if(FSMC_NAND_GetStatus()==NAND_READY)
+        return 0;           //¸´Î»³É¹¦
+    else 
+        return 1;			//¸´Î»Ê§°Ü
+} 
+
+
 void rt_hw_mtd_nand_deinit(void)
 {
     HAL_NAND_DeInit(&NAND_Handler);
 }
 
 
-//åˆå§‹åŒ–NAND FLASH
+//³õÊ¼»¯NAND FLASH
 rt_uint8_t rt_hw_mtd_nand_init(void)
 {
-    rt_kprintf("%s\r\n",__func__);
+    if(&NAND_Handler != NULL){
+        rt_hw_mtd_nand_deinit();
+    }
     FMC_NAND_PCC_TimingTypeDef ComSpaceTiming,AttSpaceTiming;
                                               
-    NAND_Handler.Instance=FMC_NAND_DEVICE;
-    NAND_Handler.Init.NandBank=FSMC_NAND_BANK2;                             //NANDæŒ‚åœ¨BANK2ä¸Š
-    NAND_Handler.Init.Waitfeature=FSMC_NAND_PCC_WAIT_FEATURE_DISABLE;        //å…³é—­ç­‰å¾…ç‰¹æ€§
-    NAND_Handler.Init.MemoryDataWidth=FSMC_NAND_PCC_MEM_BUS_WIDTH_8;        //8ä½æ•°æ®å®½åº¦
-    NAND_Handler.Init.EccComputation=FSMC_NAND_ECC_DISABLE;                 //ä¸ä½¿ç”¨ECC
-    NAND_Handler.Init.ECCPageSize=FSMC_NAND_ECC_PAGE_SIZE_2048BYTE;         //ECCé¡µå¤§å°ä¸º2k
-    NAND_Handler.Init.TCLRSetupTime=0;                                      //è®¾ç½®TCLR(tCLR=CLEåˆ°REçš„å»¶æ—¶)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
-    NAND_Handler.Init.TARSetupTime=1;                                       //è®¾ç½®TAR(tAR=ALEåˆ°REçš„å»¶æ—¶)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5nã€‚   
-   
-    ComSpaceTiming.SetupTime=2;         //å»ºç«‹æ—¶é—´
-    ComSpaceTiming.WaitSetupTime=5;     //ç­‰å¾…æ—¶é—´
-    ComSpaceTiming.HoldSetupTime=3;     //ä¿æŒæ—¶é—´
-    ComSpaceTiming.HiZSetupTime=1;      //é«˜é˜»æ€æ—¶é—´
+    NAND_Handler.Instance               = FMC_NAND_DEVICE;
+    NAND_Handler.Init.NandBank          = FSMC_NAND_BANK2;                             //NAND¹ÒÔÚBANK2ÉÏ
+    NAND_Handler.Init.Waitfeature       = FSMC_NAND_PCC_WAIT_FEATURE_DISABLE;           //¹Ø±ÕµÈ´ıÌØĞÔ
+    NAND_Handler.Init.MemoryDataWidth   = FSMC_NAND_PCC_MEM_BUS_WIDTH_8;                //8Î»Êı¾İ¿í¶È
+    NAND_Handler.Init.EccComputation    = FSMC_NAND_ECC_DISABLE;                        //²»Ê¹ÓÃECC
+    NAND_Handler.Init.ECCPageSize       = FSMC_NAND_ECC_PAGE_SIZE_2048BYTE;             //ECCÒ³´óĞ¡Îª2k
+    NAND_Handler.Init.TCLRSetupTime     = 1;                                            //ÉèÖÃTCLR(tCLR=CLEµ½REµÄÑÓÊ±)=(TCLR+TSET+2)*THCLK,THCLK=1/180M=5.5ns
+    NAND_Handler.Init.TARSetupTime      = 1;                                            //ÉèÖÃTAR(tAR=ALEµ½REµÄÑÓÊ±)=(TAR+TSET+2)*THCLK,THCLK=1/180M=5.5n¡£   
+
+    ComSpaceTiming.SetupTime        = 2;        //½¨Á¢Ê±¼ä
+    ComSpaceTiming.WaitSetupTime    = 5;        //µÈ´ıÊ±¼ä
+    ComSpaceTiming.HoldSetupTime    = 3;        //±£³ÖÊ±¼ä
+    ComSpaceTiming.HiZSetupTime     = 1;        //¸ß×èÌ¬Ê±¼ä
     
-    AttSpaceTiming.SetupTime=2;         //å»ºç«‹æ—¶é—´
-    AttSpaceTiming.WaitSetupTime=5;     //ç­‰å¾…æ—¶é—´
-    AttSpaceTiming.HoldSetupTime=3;     //ä¿æŒæ—¶é—´
-    AttSpaceTiming.HiZSetupTime=1;      //é«˜é˜»æ€æ—¶é—´
+    AttSpaceTiming.SetupTime        = 2;        //½¨Á¢Ê±¼ä
+    AttSpaceTiming.WaitSetupTime    = 5;        //µÈ´ıÊ±¼ä
+    AttSpaceTiming.HoldSetupTime    = 3;        //±£³ÖÊ±¼ä
+    AttSpaceTiming.HiZSetupTime     = 1;        //¸ß×èÌ¬Ê±¼ä
     
     HAL_NAND_Init(&NAND_Handler,&ComSpaceTiming,&AttSpaceTiming); 
-    NAND_Reset();       		        //å¤ä½NAND
+    NAND_Reset();       		        //¸´Î»NAND
     rt_thread_mdelay(100);
-    nand_dev.id = NAND_ReadID();	    //è¯»å–ID
-	NAND_ModeSet(4);			        //è®¾ç½®ä¸ºMODE4,é«˜é€Ÿæ¨¡å¼ 
 
-    if(nand_dev.id==W29N02GVSIAA){
-        nand_dev.page_totalsize = 2112;  	//nandä¸€ä¸ªpageçš„æ€»å¤§å°ï¼ˆåŒ…æ‹¬spareåŒºï¼‰     
-        nand_dev.page_mainsize  = 2048;   	//nandä¸€ä¸ªpageçš„æœ‰æ•ˆæ•°æ®åŒºå¤§å°    
-        nand_dev.page_sparesize = 64;	    //nandä¸€ä¸ªpageçš„spareåŒºå¤§å°
-        nand_dev.block_pagenum  = 64;		//nandä¸€ä¸ªblockæ‰€åŒ…å«çš„pageæ•°ç›®
-        nand_dev.plane_blocknum = 1024;	    //nandä¸€ä¸ªplaneæ‰€åŒ…å«çš„blockæ•°ç›®
-        nand_dev.block_totalnum = 2048;  	//nandçš„æ€»blockæ•°ç›®  
-
-        rt_mutex_init(&_device.lock, "nand", RT_IPC_FLAG_FIFO);
-
-        _partition[0].page_size   = 2048;
-        _partition[0].pages_per_block = 64;
-        _partition[0].block_total = 2048;
-        _partition[0].oob_size    = 64;
-        _partition[0].oob_free    = 60;
-        _partition[0].block_start = 0;
-        _partition[0].block_end   = 2047;
-        _partition[0].ops         = &ops;
-
-        rt_mtd_nand_register_device("nandflash", &_partition[0]);
-    }else{
-        return 1;	//é”™è¯¯ï¼Œè¿”å›
-    }
     return 0;
 }
-// INIT_DEVICE_EXPORT(rt_hw_mtd_nand_init);
-
-//è¯»å–NAND FLASHçš„ID
-//è¿”å›å€¼:0,æˆåŠŸ;
-//    å…¶ä»–,å¤±è´¥
-rt_uint8_t NAND_ModeSet(rt_uint8_t mode)
-{   
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_FEATURE;//å‘é€è®¾ç½®ç‰¹æ€§å‘½ä»¤
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=0X01;		//åœ°å€ä¸º0X01,è®¾ç½®mode
- 	*(rt_uint8_t*)NAND_ADDRESS=mode;					//P1å‚æ•°,è®¾ç½®mode
-	*(rt_uint8_t*)NAND_ADDRESS=0;
-	*(rt_uint8_t*)NAND_ADDRESS=0;
-	*(rt_uint8_t*)NAND_ADDRESS=0; 
-
-    if(NAND_WaitForReady()==NSTA_READY)
-        return 0;               //æˆåŠŸ
-    else 
-        return 1;				//å¤±è´¥
-}
-
-//è¯»å–NAND FLASHçš„ID
-//ä¸åŒçš„NANDç•¥æœ‰ä¸åŒï¼Œè¯·æ ¹æ®è‡ªå·±æ‰€ä½¿ç”¨çš„NAND FALSHæ•°æ®æ‰‹å†Œæ¥ç¼–å†™å‡½æ•°
-//è¿”å›å€¼:NAND FLASHçš„IDå€¼
-rt_uint32_t NAND_ReadID(void)
-{
-    rt_uint8_t deviceid[5]; 
-    rt_uint32_t id;  
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_READID; //å‘é€è¯»å–IDå‘½ä»¤
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=0X00;
-	//IDä¸€å…±æœ‰5ä¸ªå­—èŠ‚
-    deviceid[0]=*(rt_uint8_t*)NAND_ADDRESS;      
-    deviceid[1]=*(rt_uint8_t*)NAND_ADDRESS;  
-    deviceid[2]=*(rt_uint8_t*)NAND_ADDRESS; 
-    deviceid[3]=*(rt_uint8_t*)NAND_ADDRESS; 
-    deviceid[4]=*(rt_uint8_t*)NAND_ADDRESS;  
-
-    id=((rt_uint32_t)deviceid[0])<<24|((rt_uint32_t)deviceid[1])<<16|((rt_uint32_t)deviceid[2])<<8|deviceid[3];
-    NAND_DEBUG("NAND_ReadID = %08x\r\n",id);
-
-    return id;
-}  
-//è¯»NANDçŠ¶æ€
-//è¿”å›å€¼:NANDçŠ¶æ€å€¼
-//bit0:0,æˆåŠŸ;1,é”™è¯¯(ç¼–ç¨‹/æ“¦é™¤/READ)
-//bit6:0,Busy;1,Ready
-rt_uint8_t NAND_ReadStatus(void)
-{
-    rt_uint8_t data=0; 
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_READSTA;//å‘é€è¯»çŠ¶æ€å‘½ä»¤
-    NAND_Delay(NAND_TWHR_DELAY);	            //ç­‰å¾…tWHR,å†è¯»å–çŠ¶æ€å¯„å­˜å™¨
- 	data=*(rt_uint8_t*)NAND_ADDRESS;			//è¯»å–çŠ¶æ€å€¼
-
-    return data;
-}
-//ç­‰å¾…NANDå‡†å¤‡å¥½
-//è¿”å›å€¼:NSTA_TIMEOUT ç­‰å¾…è¶…æ—¶äº†
-//      NSTA_READY    å·²ç»å‡†å¤‡å¥½
-rt_uint8_t NAND_WaitForReady(void)
-{
-    rt_uint8_t status=0;
-    rt_uint32_t time=0; 
-	while(1)						//ç­‰å¾…ready
-	{
-		status = NAND_ReadStatus();	//è·å–çŠ¶æ€å€¼
-		if(status&NSTA_READY)break;
-		time++;
-		if(time>=0X1FFFFFFF)return NSTA_TIMEOUT;//è¶…æ—¶
-	}  
-
-    return NSTA_READY;//å‡†å¤‡å¥½
-}  
-//å¤ä½NAND
-//è¿”å›å€¼:0,æˆåŠŸ;
-//    å…¶ä»–,å¤±è´¥
-rt_uint8_t NAND_Reset(void)
-{ 
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD) = NAND_RESET;	//å¤ä½NAND
-    if(NAND_WaitForReady()==NSTA_READY)
-        return 0;           //å¤ä½æˆåŠŸ
-    else 
-        return 1;			//å¤ä½å¤±è´¥
-} 
-//ç­‰å¾…RBä¿¡å·ä¸ºæŸä¸ªç”µå¹³
-//rb:0,ç­‰å¾…RB==0
-//   1,ç­‰å¾…RB==1
-//è¿”å›å€¼:0,æˆåŠŸ
-//       1,è¶…æ—¶
-rt_uint8_t NAND_WaitRB(rt_uint8_t rb)
-{
-    rt_uint32_t time=0;  
-	while(time<0X1FFFFFF)
-	{
-		time++;
-		if(rt_pin_read(NAND_RB)==rb)return 0;
-	}
-	return 1;
-}
-//NANDå»¶æ—¶
-//ä¸€ä¸ªi++è‡³å°‘éœ€è¦4ns
-void NAND_Delay(rt_uint32_t i)
-{
-	while(i>0)i--;
-}
-//è¯»å–NAND Flashçš„æŒ‡å®šé¡µæŒ‡å®šåˆ—çš„æ•°æ®(mainåŒºå’ŒspareåŒºéƒ½å¯ä»¥ä½¿ç”¨æ­¤å‡½æ•°)
-//PageNum:è¦è¯»å–çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//ColNum:è¦è¯»å–çš„åˆ—å¼€å§‹åœ°å€(ä¹Ÿå°±æ˜¯é¡µå†…åœ°å€),èŒƒå›´:0~(page_totalsize-1)
-//*pBuffer:æŒ‡å‘æ•°æ®å­˜å‚¨åŒº
-//NumByteToRead:è¯»å–å­—èŠ‚æ•°(ä¸èƒ½è·¨é¡µè¯»)
-//è¿”å›å€¼:0,æˆåŠŸ 
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead)
-{
-    rt_uint16_t i=0;
-	rt_uint8_t res=0;
-	rt_uint8_t eccnum=0;		//éœ€è¦è®¡ç®—çš„ECCä¸ªæ•°ï¼Œæ¯NAND_ECC_SECTOR_SIZEå­—èŠ‚è®¡ç®—ä¸€ä¸ªecc
-	rt_uint8_t eccstart=0;		//ç¬¬ä¸€ä¸ªECCå€¼æ‰€å±çš„åœ°å€èŒƒå›´
-	rt_uint8_t errsta=0;
-	rt_uint8_t *p;
-     *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
-    //å‘é€åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
-
-	res=NAND_WaitRB(0);			//ç­‰å¾…RB=0 
-    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
-    //ä¸‹é¢2è¡Œä»£ç æ˜¯çœŸæ­£åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡å¥½çš„
-	res=NAND_WaitRB(1);			//ç­‰å¾…RB=1 
-    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
-	if(NumByteToRead%NAND_ECC_SECTOR_SIZE)//ä¸æ˜¯NAND_ECC_SECTOR_SIZEçš„æ•´æ•°å€ï¼Œä¸è¿›è¡ŒECCæ ¡éªŒ
-	{ 
-		//è¯»å–NAND FLASHä¸­çš„å€¼
-		for(i=0;i<NumByteToRead;i++)
-		{
-			*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
-		}
-	}else
-	{
-		eccnum=NumByteToRead/NAND_ECC_SECTOR_SIZE;			//å¾—åˆ°eccè®¡ç®—æ¬¡æ•°
-		eccstart=ColNum/NAND_ECC_SECTOR_SIZE;
-		p=pBuffer;
-		for(res=0;res<eccnum;res++)
-		{
-            NAND_Handler.Instance->PCR2|=1<<6;              //ä½¿èƒ½ECCæ ¡éªŒ      
-			for(i=0;i<NAND_ECC_SECTOR_SIZE;i++)				//è¯»å–NAND_ECC_SECTOR_SIZEä¸ªæ•°æ®
-			{
-				*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
-			}		
-			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //ç­‰å¾…FIFOç©º	
-			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//è¯»å–ç¡¬ä»¶è®¡ç®—åçš„ECCå€¼
-			NAND_Handler.Instance->PCR2&=~(1<<6);						//ç¦æ­¢ECCæ ¡éªŒ
-		} 
-		i=nand_dev.page_mainsize+0X10+eccstart*4;			//ä»spareåŒºçš„0X10ä½ç½®å¼€å§‹è¯»å–ä¹‹å‰å­˜å‚¨çš„eccå€¼
-		NAND_Delay(NAND_TRHW_DELAY);//ç­‰å¾…tRHW 
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0x05;				//éšæœºè¯»æŒ‡ä»¤
-		//å‘é€åœ°å€
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0xE0;				//å¼€å§‹è¯»æ•°æ®
-		NAND_Delay(NAND_TWHR_DELAY);//ç­‰å¾…tWHR 
-		pBuffer=(rt_uint8_t*)&nand_dev.ecc_rdbuf[eccstart];
-		for(i=0;i<4*eccnum;i++)								//è¯»å–ä¿å­˜çš„ECCå€¼
-		{
-			*(rt_uint8_t*)pBuffer++= *(rt_uint8_t*)NAND_ADDRESS;
-		}			
-		for(i=0;i<eccnum;i++)								//æ£€éªŒECC
-		{
-			if(nand_dev.ecc_rdbuf[i+eccstart]!=nand_dev.ecc_hdbuf[i+eccstart])//ä¸ç›¸ç­‰,éœ€è¦æ ¡æ­£
-			{
-				NAND_DEBUG("err hd,rd:0x%x,0x%x\r\n",nand_dev.ecc_hdbuf[i+eccstart],nand_dev.ecc_rdbuf[i+eccstart]); 
- 				NAND_DEBUG("eccnum,eccstart:%d,%d\r\n",eccnum,eccstart);	
-				NAND_DEBUG("PageNum,ColNum:%d,%d\r\n",PageNum,ColNum);	
-				res=NAND_ECC_Correction(p+NAND_ECC_SECTOR_SIZE*i,nand_dev.ecc_rdbuf[i+eccstart],nand_dev.ecc_hdbuf[i+eccstart]);//ECCæ ¡éªŒ
-				if(res)errsta=NSTA_ECC2BITERR;				//æ ‡è®°2BITåŠä»¥ä¸ŠECCé”™è¯¯
-				else errsta=NSTA_ECC1BITERR;				//æ ‡è®°1BIT ECCé”™è¯¯
-			} 
-		} 		
-	}
-    if(NAND_WaitForReady()!=NSTA_READY)errsta=NSTA_ERROR;	//å¤±è´¥
-    return errsta;	//æˆåŠŸ   
-} 
-
 
 rt_uint8_t FSMC_NAND_ReadPage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead)
 {
 	rt_uint32_t i;
-    rt_uint8_t res=0;
 
-     *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
-    //å‘é€åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_usAddrInPage;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_usAddrInPage>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_ulPageNo;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
+    NAND_CMD_AREA = NAND_AREA_A;
+    //·¢ËÍµØÖ·
+    NAND_ADDR_AREA = _usAddrInPage;
+	NAND_ADDR_AREA = _usAddrInPage >> 8;
+	NAND_ADDR_AREA = _ulPageNo;
+	NAND_ADDR_AREA = (_ulPageNo & 0xFF00) >> 8;
+    NAND_ADDR_AREA = (_ulPageNo & 0xFF0000) >> 16;
 
-	 /* å¿…é¡»ç­‰å¾…ï¼Œå¦åˆ™è¯»å‡ºæ•°æ®å¼‚å¸¸, æ­¤å¤„åº”è¯¥åˆ¤æ–­è¶…æ—¶ */
+    NAND_CMD_AREA = NAND_AREA_TRUE1;
+
+	 /* ±ØĞëµÈ´ı£¬·ñÔò¶Á³öÊı¾İÒì³£, ´Ë´¦Ó¦¸ÃÅĞ¶Ï³¬Ê± */
 	for (i = 0; i < 20; i++);
-//    res=NAND_WaitRB(0);			//ç­‰å¾…RB=0 
-//    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
-    //ä¸‹é¢2è¡Œä»£ç æ˜¯çœŸæ­£åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡å¥½çš„
-	res=NAND_WaitRB(1);			//ç­‰å¾…RB=1 
-    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
+    while(rt_pin_read(NAND_RB)==0);
 
-
-	/* è¯»æ•°æ®åˆ°ç¼“å†²åŒºpBuffer */
+	/* ¶ÁÊı¾İµ½»º³åÇøpBuffer */
 	for(i = 0; i < NumByteToRead; i++)
 	{
-		_pBuffer[i] = NAND_ADDRESS;
+		_pBuffer[i] = NAND_DATA_AREA;
 	}
 
 	return RT_EOK;
 }
 
-
-//è¯»å–NAND Flashçš„æŒ‡å®šé¡µæŒ‡å®šåˆ—çš„æ•°æ®(mainåŒºå’ŒspareåŒºéƒ½å¯ä»¥ä½¿ç”¨æ­¤å‡½æ•°),å¹¶å¯¹æ¯”(FTLç®¡ç†æ—¶éœ€è¦)
-//PageNum:è¦è¯»å–çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//ColNum:è¦è¯»å–çš„åˆ—å¼€å§‹åœ°å€(ä¹Ÿå°±æ˜¯é¡µå†…åœ°å€),èŒƒå›´:0~(page_totalsize-1)
-//CmpVal:è¦å¯¹æ¯”çš„å€¼,ä»¥rt_uint32_tä¸ºå•ä½
-//NumByteToRead:è¯»å–å­—æ•°(ä»¥4å­—èŠ‚ä¸ºå•ä½,ä¸èƒ½è·¨é¡µè¯»)
-//NumByteEqual:ä»åˆå§‹ä½ç½®æŒç»­ä¸CmpValå€¼ç›¸åŒçš„æ•°æ®ä¸ªæ•°
-//è¿”å›å€¼:0,æˆåŠŸ
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_ReadPageComp(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_t CmpVal,rt_uint16_t NumByteToRead,rt_uint16_t *NumByteEqual)
-{
-    rt_uint16_t i=0;
-	rt_uint8_t res=0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_A;
-    //å‘é€åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_AREA_TRUE1;
-
-	res=NAND_WaitRB(0);			//ç­‰å¾…RB=0 
-	if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
-    //ä¸‹é¢2è¡Œä»£ç æ˜¯çœŸæ­£åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡å¥½çš„
-	res=NAND_WaitRB(1);			//ç­‰å¾…RB=1 
-    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º  
-    for(i=0;i<NumByteToRead;i++)//è¯»å–æ•°æ®,æ¯æ¬¡è¯»4å­—èŠ‚
-    {
-		if(*(rt_uint32_t*)NAND_ADDRESS!=CmpVal)break;	//å¦‚æœæœ‰ä»»ä½•ä¸€ä¸ªå€¼,ä¸CmpValä¸ç›¸ç­‰,åˆ™é€€å‡º.
-    }
-	*NumByteEqual=i;					//ä¸CmpValå€¼ç›¸åŒçš„ä¸ªæ•°
-    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//å¤±è´¥
-    return 0;	//æˆåŠŸ   
-} 
-//åœ¨NANDä¸€é¡µä¸­å†™å…¥æŒ‡å®šä¸ªå­—èŠ‚çš„æ•°æ®(mainåŒºå’ŒspareåŒºéƒ½å¯ä»¥ä½¿ç”¨æ­¤å‡½æ•°)
-//PageNum:è¦å†™å…¥çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//ColNum:è¦å†™å…¥çš„åˆ—å¼€å§‹åœ°å€(ä¹Ÿå°±æ˜¯é¡µå†…åœ°å€),èŒƒå›´:0~(page_totalsize-1)
-//pBbuffer:æŒ‡å‘æ•°æ®å­˜å‚¨åŒº
-//NumByteToWrite:è¦å†™å…¥çš„å­—èŠ‚æ•°ï¼Œè¯¥å€¼ä¸èƒ½è¶…è¿‡è¯¥é¡µå‰©ä½™å­—èŠ‚æ•°ï¼ï¼ï¼
-//è¿”å›å€¼:0,æˆåŠŸ 
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite)
-{
-    rt_uint16_t i=0;  
-	rt_uint8_t res=0;
-	rt_uint8_t eccnum=0;		//éœ€è¦è®¡ç®—çš„ECCä¸ªæ•°ï¼Œæ¯NAND_ECC_SECTOR_SIZEå­—èŠ‚è®¡ç®—ä¸€ä¸ªecc
-	rt_uint8_t eccstart=0;		//ç¬¬ä¸€ä¸ªECCå€¼æ‰€å±çš„åœ°å€èŒƒå›´
-	
-	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
-    //å‘é€åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
-	NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL
-    // NAND_DEBUG("Write PageNum %d ColNum %d   %d data:\r\n",PageNum,ColNum,NumByteToWrite); 
-
-	if(NumByteToWrite%NAND_ECC_SECTOR_SIZE)//ä¸æ˜¯NAND_ECC_SECTOR_SIZEçš„æ•´æ•°å€ï¼Œä¸è¿›è¡ŒECCæ ¡éªŒ
-	{  
-		for(i=0;i<NumByteToWrite;i++)		//å†™å…¥æ•°æ®
-		{
-            // NAND_DEBUG("%02x ",*(rt_uint8_t*)pBuffer); 
-			*(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)pBuffer++;
-            // if((i%8) == 0)
-            //     NAND_DEBUG("\r\n");
-		}
-	}else
-	{
-		eccnum=NumByteToWrite/NAND_ECC_SECTOR_SIZE;			//å¾—åˆ°eccè®¡ç®—æ¬¡æ•°
-		eccstart=ColNum/NAND_ECC_SECTOR_SIZE; 
- 		for(res=0;res<eccnum;res++)
-		{
-            NAND_Handler.Instance->PCR2|=1<<6;              //ä½¿èƒ½ECCæ ¡éªŒ      
-			for(i=0;i<NAND_ECC_SECTOR_SIZE;i++)				//è¯»å–NAND_ECC_SECTOR_SIZEä¸ªæ•°æ®
-			{
-				*(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)pBuffer++;
-			}		
-			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //ç­‰å¾…FIFOç©º	
-			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;  //è¯»å–ç¡¬ä»¶è®¡ç®—åçš„ECCå€¼
-			NAND_Handler.Instance->PCR2&=~(1<<6);	
-		}  
-		i=nand_dev.page_mainsize+0x10+eccstart*4;			//è®¡ç®—å†™å…¥ECCçš„spareåŒºåœ°å€
-		NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL 
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0x85;				//éšæœºå†™æŒ‡ä»¤
-		//å‘é€åœ°å€
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
-		NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL 
-		pBuffer=(rt_uint8_t*)&nand_dev.ecc_hdbuf[eccstart];
-		for(i=0;i<eccnum;i++)					//å†™å…¥ECC
-		{ 
-			for(res=0;res<4;res++)				 
-			{
-				*(rt_uint8_t*)NAND_ADDRESS=*(rt_uint8_t*)pBuffer++;
-			}
-		} 		
-	}
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
- 	rt_thread_mdelay(NAND_TPROG_DELAY);	//ç­‰å¾…tPROG
-	if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//å¤±è´¥
-    return 0;//æˆåŠŸ   
-}
 
 rt_uint8_t FSMC_NAND_WritePage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead)
 {
 	rt_uint32_t i;
+  rt_uint8_t ucStatus;
 
-	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
-    //å‘é€åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_usAddrInPage;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_usAddrInPage>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)_ulPageNo;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(_ulPageNo>>16);
+	NAND_CMD_AREA = NAND_WRITE0;
+  //·¢ËÍµØÖ·
+ 	NAND_ADDR_AREA = _usAddrInPage;
+	NAND_ADDR_AREA = _usAddrInPage >> 8;
+	NAND_ADDR_AREA = _ulPageNo;
+	NAND_ADDR_AREA = (_ulPageNo & 0xFF00) >> 8;
+    NAND_ADDR_AREA = (_ulPageNo & 0xFF0000) >> 16;
+	for (i = 0; i < 20; i++);
 
-	rt_thread_mdelay(NAND_TPROG_DELAY);	//ç­‰å¾…tPROG
 	for(i = 0; i < NumByteToRead; i++)
 	{
-        *(rt_uint8_t*)NAND_ADDRESS = *(rt_uint8_t*)_pBuffer++;
+        NAND_DATA_AREA = _pBuffer[i];
 	}
 
-	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
+	NAND_CMD_AREA = NAND_WRITE_TURE1; 
 
-	rt_thread_mdelay(NAND_TPROG_DELAY);	//ç­‰å¾…tPROG
+	for (i = 0; i < 20; i++);
 	
-    if(NAND_WaitForReady() != NSTA_READY)return RT_ERROR;   //å¤±è´¥
-	
-	return RT_EOK;
-}
-
-
-
-
-
-
-
-
-
-
-
-//åœ¨NANDä¸€é¡µä¸­çš„æŒ‡å®šåœ°å€å¼€å§‹,å†™å…¥æŒ‡å®šé•¿åº¦çš„æ’å®šæ•°å­—
-//PageNum:è¦å†™å…¥çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//ColNum:è¦å†™å…¥çš„åˆ—å¼€å§‹åœ°å€(ä¹Ÿå°±æ˜¯é¡µå†…åœ°å€),èŒƒå›´:0~(page_totalsize-1)
-//cval:è¦å†™å…¥çš„æŒ‡å®šå¸¸æ•°
-//NumByteToWrite:è¦å†™å…¥çš„å­—æ•°(ä»¥4å­—èŠ‚ä¸ºå•ä½)
-//è¿”å›å€¼:0,æˆåŠŸ 
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_WritePageConst(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_t cval,rt_uint16_t NumByteToWrite)
-{
-    rt_uint16_t i=0;  
-	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE0;
-    //å‘é€åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(PageNum>>16);
-	NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL 
-	for(i=0;i<NumByteToWrite;i++)		//å†™å…¥æ•°æ®,æ¯æ¬¡å†™4å­—èŠ‚
+  	ucStatus = FSMC_NAND_GetStatus();
+	if(ucStatus == NAND_READY)   
 	{
-		*(rt_uint32_t*)NAND_ADDRESS=cval;
-	} 
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_WRITE_TURE1; 
- 	rt_thread_mdelay(NAND_TPROG_DELAY);	//ç­‰å¾…tPROG
-    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//å¤±è´¥
-    return 0;//æˆåŠŸ   
-}
-//å°†ä¸€é¡µæ•°æ®æ‹·è´åˆ°å¦ä¸€é¡µ,ä¸å†™å…¥æ–°æ•°æ®
-//æ³¨æ„:æºé¡µå’Œç›®çš„é¡µè¦åœ¨åŒä¸€ä¸ªPlaneå†…ï¼
-//Source_PageNo:æºé¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//Dest_PageNo:ç›®çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)  
-//è¿”å›å€¼:0,æˆåŠŸ
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_CopyPageWithoutWrite(rt_uint32_t Source_PageNum,rt_uint32_t Dest_PageNum)
-{
-	rt_uint8_t res=0;
-    rt_uint16_t source_block=0,dest_block=0;  
-    //åˆ¤æ–­æºé¡µå’Œç›®çš„é¡µæ˜¯å¦åœ¨åŒä¸€ä¸ªplaneä¸­
-    source_block=Source_PageNum/nand_dev.block_pagenum;
-    dest_block=Dest_PageNum/nand_dev.block_pagenum;
-    if((source_block%2)!=(dest_block%2))return NSTA_ERROR;	//ä¸åœ¨åŒä¸€ä¸ªplaneå†… 
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD0;	//å‘é€å‘½ä»¤0X00
-    //å‘é€æºé¡µåœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Source_PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD1;//å‘é€å‘½ä»¤0X35 
-    //ä¸‹é¢ä¸¤è¡Œä»£ç æ˜¯ç­‰å¾…R/Bå¼•è„šå˜ä¸ºä½ç”µå¹³ï¼Œå…¶å®ä¸»è¦èµ·å»¶æ—¶ä½œç”¨çš„ï¼Œç­‰å¾…NANDæ“ä½œR/Bå¼•è„šã€‚å› ä¸ºæˆ‘ä»¬æ˜¯é€šè¿‡
-    //å°†STM32çš„NWAITå¼•è„š(NANDçš„R/Bå¼•è„š)é…ç½®ä¸ºæ™®é€šIOï¼Œä»£ç ä¸­é€šè¿‡è¯»å–NWAITå¼•è„šçš„ç”µå¹³æ¥åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡
-    //å°±ç»ªçš„ã€‚è¿™ä¸ªä¹Ÿå°±æ˜¯æ¨¡æ‹Ÿçš„æ–¹æ³•ï¼Œæ‰€ä»¥åœ¨é€Ÿåº¦å¾ˆå¿«çš„æ—¶å€™æœ‰å¯èƒ½NANDè¿˜æ²¡æ¥å¾—åŠæ“ä½œR/Bå¼•è„šæ¥è¡¨ç¤ºNANDçš„å¿™
-    //é—²çŠ¶æ€ï¼Œç»“æœæˆ‘ä»¬å°±è¯»å–äº†R/Bå¼•è„š,è¿™ä¸ªæ—¶å€™è‚¯å®šä¼šå‡ºé”™çš„ï¼Œäº‹å®ä¸Šç¡®å®æ˜¯ä¼šå‡ºé”™!å¤§å®¶ä¹Ÿå¯ä»¥å°†ä¸‹é¢ä¸¤è¡Œ
-    //ä»£ç æ¢æˆå»¶æ—¶å‡½æ•°,åªä¸è¿‡è¿™é‡Œæˆ‘ä»¬ä¸ºäº†æ•ˆç‡æ‰€ä»¥æ²¡æœ‰ç”¨å»¶æ—¶å‡½æ•°ã€‚
-	res=NAND_WaitRB(0);			//ç­‰å¾…RB=0 
-	if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
-    //ä¸‹é¢2è¡Œä»£ç æ˜¯çœŸæ­£åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡å¥½çš„
-	res=NAND_WaitRB(1);			//ç­‰å¾…RB=1 
-    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º 
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD2;  //å‘é€å‘½ä»¤0X85
-    //å‘é€ç›®çš„é¡µåœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Dest_PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD3;	//å‘é€å‘½ä»¤0X10 
-	rt_thread_mdelay(NAND_TPROG_DELAY);	//ç­‰å¾…tPROG
-    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;	//NANDæœªå‡†å¤‡å¥½ 
-    return 0;//æˆåŠŸ   
-}
-
-//å°†ä¸€é¡µæ•°æ®æ‹·è´åˆ°å¦ä¸€é¡µ,å¹¶ä¸”å¯ä»¥å†™å…¥æ•°æ®
-//æ³¨æ„:æºé¡µå’Œç›®çš„é¡µè¦åœ¨åŒä¸€ä¸ªPlaneå†…ï¼
-//Source_PageNo:æºé¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//Dest_PageNo:ç›®çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)  
-//ColNo:é¡µå†…åˆ—åœ°å€,èŒƒå›´:0~(page_totalsize-1)
-//pBuffer:è¦å†™å…¥çš„æ•°æ®
-//NumByteToWrite:è¦å†™å…¥çš„æ•°æ®ä¸ªæ•°
-//è¿”å›å€¼:0,æˆåŠŸ 
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_CopyPageWithWrite(rt_uint32_t Source_PageNum,rt_uint32_t Dest_PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite)
-{
-	rt_uint8_t res=0;
-    rt_uint16_t i=0;
-	rt_uint16_t source_block=0,dest_block=0;  
-	rt_uint8_t eccnum=0;		//éœ€è¦è®¡ç®—çš„ECCä¸ªæ•°ï¼Œæ¯NAND_ECC_SECTOR_SIZEå­—èŠ‚è®¡ç®—ä¸€ä¸ªecc
-	rt_uint8_t eccstart=0;		//ç¬¬ä¸€ä¸ªECCå€¼æ‰€å±çš„åœ°å€èŒƒå›´
-    //åˆ¤æ–­æºé¡µå’Œç›®çš„é¡µæ˜¯å¦åœ¨åŒä¸€ä¸ªplaneä¸­
-    source_block=Source_PageNum/nand_dev.block_pagenum;
-    dest_block=Dest_PageNum/nand_dev.block_pagenum;
-    if((source_block%2)!=(dest_block%2))return NSTA_ERROR;//ä¸åœ¨åŒä¸€ä¸ªplaneå†…
-	*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD0;  //å‘é€å‘½ä»¤0X00
-    //å‘é€æºé¡µåœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)0;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Source_PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Source_PageNum>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD1;  //å‘é€å‘½ä»¤0X35
-    
-    //ä¸‹é¢ä¸¤è¡Œä»£ç æ˜¯ç­‰å¾…R/Bå¼•è„šå˜ä¸ºä½ç”µå¹³ï¼Œå…¶å®ä¸»è¦èµ·å»¶æ—¶ä½œç”¨çš„ï¼Œç­‰å¾…NANDæ“ä½œR/Bå¼•è„šã€‚å› ä¸ºæˆ‘ä»¬æ˜¯é€šè¿‡
-    //å°†STM32çš„NWAITå¼•è„š(NANDçš„R/Bå¼•è„š)é…ç½®ä¸ºæ™®é€šIOï¼Œä»£ç ä¸­é€šè¿‡è¯»å–NWAITå¼•è„šçš„ç”µå¹³æ¥åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡
-    //å°±ç»ªçš„ã€‚è¿™ä¸ªä¹Ÿå°±æ˜¯æ¨¡æ‹Ÿçš„æ–¹æ³•ï¼Œæ‰€ä»¥åœ¨é€Ÿåº¦å¾ˆå¿«çš„æ—¶å€™æœ‰å¯èƒ½NANDè¿˜æ²¡æ¥å¾—åŠæ“ä½œR/Bå¼•è„šæ¥è¡¨ç¤ºNANDçš„å¿™
-    //é—²çŠ¶æ€ï¼Œç»“æœæˆ‘ä»¬å°±è¯»å–äº†R/Bå¼•è„š,è¿™ä¸ªæ—¶å€™è‚¯å®šä¼šå‡ºé”™çš„ï¼Œäº‹å®ä¸Šç¡®å®æ˜¯ä¼šå‡ºé”™!å¤§å®¶ä¹Ÿå¯ä»¥å°†ä¸‹é¢ä¸¤è¡Œ
-    //ä»£ç æ¢æˆå»¶æ—¶å‡½æ•°,åªä¸è¿‡è¿™é‡Œæˆ‘ä»¬ä¸ºäº†æ•ˆç‡æ‰€ä»¥æ²¡æœ‰ç”¨å»¶æ—¶å‡½æ•°ã€‚
-	res=NAND_WaitRB(0);			//ç­‰å¾…RB=0 
-	if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º
-    //ä¸‹é¢2è¡Œä»£ç æ˜¯çœŸæ­£åˆ¤æ–­NANDæ˜¯å¦å‡†å¤‡å¥½çš„
-	res=NAND_WaitRB(1);			//ç­‰å¾…RB=1 
-    if(res)return NSTA_TIMEOUT;	//è¶…æ—¶é€€å‡º 
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD2;  //å‘é€å‘½ä»¤0X85
-    //å‘é€ç›®çš„é¡µåœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)ColNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(ColNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)Dest_PageNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(Dest_PageNum>>16); 
-    //å‘é€é¡µå†…åˆ—åœ°å€
-	NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL 
-	if(NumByteToWrite%NAND_ECC_SECTOR_SIZE)//ä¸æ˜¯NAND_ECC_SECTOR_SIZEçš„æ•´æ•°å€ï¼Œä¸è¿›è¡ŒECCæ ¡éªŒ
-	{  
-		for(i=0;i<NumByteToWrite;i++)		//å†™å…¥æ•°æ®
-		{
-			*(rt_uint8_t*)NAND_ADDRESS=*(rt_uint8_t*)pBuffer++;
-		}
-	}else
-	{
-		eccnum=NumByteToWrite/NAND_ECC_SECTOR_SIZE;			//å¾—åˆ°eccè®¡ç®—æ¬¡æ•°
-		eccstart=ColNum/NAND_ECC_SECTOR_SIZE; 
- 		for(res=0;res<eccnum;res++)
-		{
-            NAND_Handler.Instance->PCR2|=1<<6;              //ä½¿èƒ½ECCæ ¡éªŒ      
-			for(i=0;i<NAND_ECC_SECTOR_SIZE;i++)				//è¯»å–NAND_ECC_SECTOR_SIZEä¸ªæ•°æ®
-			{
-				*(rt_uint8_t*)pBuffer++ = *(rt_uint8_t*)NAND_ADDRESS;
-			}		
-			while(!(NAND_Handler.Instance->SR2&(1<<6)));				    //ç­‰å¾…FIFOç©º	
-			nand_dev.ecc_hdbuf[res+eccstart]=NAND_Handler.Instance->ECCR2;//è¯»å–ç¡¬ä»¶è®¡ç®—åçš„ECCå€¼
-			NAND_Handler.Instance->PCR2&=~(1<<6);	
-		}  
-		i=nand_dev.page_mainsize+0X10+eccstart*4;			//è®¡ç®—å†™å…¥ECCçš„spareåŒºåœ°å€
-		NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL 
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=0X85;				//éšæœºå†™æŒ‡ä»¤
-		//å‘é€åœ°å€
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)i;
-		*(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(i>>8);
-		NAND_Delay(NAND_TADL_DELAY);//ç­‰å¾…tADL 
-		pBuffer=(rt_uint8_t*)&nand_dev.ecc_hdbuf[eccstart];
-		for(i=0;i<eccnum;i++)					//å†™å…¥ECC
-		{ 
-			for(res=0;res<4;res++)				 
-			{
-				*(rt_uint8_t*)NAND_ADDRESS=*(rt_uint8_t*)pBuffer++;
-			}
-		} 		
+		ucStatus = RTV_NOERR;
 	}
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_MOVEDATA_CMD3;	//å‘é€å‘½ä»¤0X10 
- 	rt_thread_mdelay(NAND_TPROG_DELAY);							//ç­‰å¾…tPROG
-    if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;	//å¤±è´¥
-    return 0;	//æˆåŠŸ   
-} 
-//è¯»å–spareåŒºä¸­çš„æ•°æ®
-//PageNum:è¦å†™å…¥çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//ColNum:è¦å†™å…¥çš„spareåŒºåœ°å€(spareåŒºä¸­å“ªä¸ªåœ°å€),èŒƒå›´:0~(page_sparesize-1) 
-//pBuffer:æ¥æ”¶æ•°æ®ç¼“å†²åŒº 
-//NumByteToRead:è¦è¯»å–çš„å­—èŠ‚æ•°(ä¸å¤§äºpage_sparesize)
-//è¿”å›å€¼:0,æˆåŠŸ
-//    å…¶ä»–,é”™è¯¯ä»£ç 
-rt_uint8_t NAND_ReadSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead)
+	else if(ucStatus == NAND_ERROR)
+	{
+		ucStatus = ERR_NAND_PROG;		
+	}
+	else if(ucStatus == NAND_TIMEOUT_ERROR)
+	{
+		ucStatus = ERR_NAND_HW_TOUT;		
+	}
+	
+	return (ucStatus);
+}
+
+//²Á³ıÒ»¸ö¿é
+//BlockNum:Òª²Á³ıµÄBLOCK±àºÅ,·¶Î§:0-(block_totalnum-1)
+//·µ»ØÖµ:0,²Á³ı³É¹¦
+//    ÆäËû,²Á³ıÊ§°Ü
+rt_uint8_t NAND_EraseBlock(rt_uint32_t _ulBlockNo)
 {
-    rt_uint8_t temp=0;
-    rt_uint8_t remainbyte=0;
-    remainbyte=nand_dev.page_sparesize-ColNum;
-    if(NumByteToRead>remainbyte) NumByteToRead=remainbyte;  //ç¡®ä¿è¦å†™å…¥çš„å­—èŠ‚æ•°ä¸å¤§äºspareå‰©ä½™çš„å¤§å°
-    temp=NAND_ReadPage(PageNum,ColNum+nand_dev.page_mainsize,pBuffer,NumByteToRead);//è¯»å–æ•°æ®
-    return temp;
+    rt_uint8_t ucStatus;
+	
+	NAND_CMD_AREA = NAND_ERASE0;
+
+	_ulBlockNo <<= 6;	
+
+    NAND_ADDR_AREA = _ulBlockNo;
+    NAND_ADDR_AREA = _ulBlockNo >> 8;
+    NAND_ADDR_AREA = _ulBlockNo >> 16;
+
+	NAND_CMD_AREA = NAND_ERASE1;
+
+	ucStatus = FSMC_NAND_GetStatus();
+	if(ucStatus == NAND_READY)   
+	{
+		ucStatus = RTV_NOERR;
+	}
+	else if(ucStatus == NAND_ERROR)
+	{
+		ucStatus = ERR_NAND_PROG;		
+	}
+	else if(ucStatus == NAND_TIMEOUT_ERROR)
+	{
+		ucStatus = ERR_NAND_HW_TOUT;		
+	}
+	
+	return (ucStatus);
 } 
-//å‘spareåŒºä¸­å†™æ•°æ®
-//PageNum:è¦å†™å…¥çš„é¡µåœ°å€,èŒƒå›´:0~(block_pagenum*block_totalnum-1)
-//ColNum:è¦å†™å…¥çš„spareåŒºåœ°å€(spareåŒºä¸­å“ªä¸ªåœ°å€),èŒƒå›´:0~(page_sparesize-1)  
-//pBuffer:è¦å†™å…¥çš„æ•°æ®é¦–åœ°å€ 
-//NumByteToWrite:è¦å†™å…¥çš„å­—èŠ‚æ•°(ä¸å¤§äºpage_sparesize)
-//è¿”å›å€¼:0,æˆåŠŸ
-//    å…¶ä»–,å¤±è´¥
-rt_uint8_t NAND_WriteSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite)
-{
-    rt_uint8_t temp=0;
-    rt_uint8_t remainbyte=0;
-    remainbyte=nand_dev.page_sparesize-ColNum;
-    if(NumByteToWrite>remainbyte) NumByteToWrite=remainbyte;  //ç¡®ä¿è¦è¯»å–çš„å­—èŠ‚æ•°ä¸å¤§äºspareå‰©ä½™çš„å¤§å°
-    temp=NAND_WritePage(PageNum,ColNum+nand_dev.page_mainsize,pBuffer,NumByteToWrite);//è¯»å–
-    return temp;
-} 
-//æ“¦é™¤ä¸€ä¸ªå—
-//BlockNum:è¦æ“¦é™¤çš„BLOCKç¼–å·,èŒƒå›´:0-(block_totalnum-1)
-//è¿”å›å€¼:0,æ“¦é™¤æˆåŠŸ
-//    å…¶ä»–,æ“¦é™¤å¤±è´¥
-rt_uint8_t NAND_EraseBlock(rt_uint32_t BlockNum)
-{
-    if(nand_dev.id==W29N02GVSIAA)BlockNum<<=6;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_ERASE0;
-    //å‘é€å—åœ°å€
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)BlockNum;
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(BlockNum>>8);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_ADDR)=(rt_uint8_t)(BlockNum>>16);
-    *(rt_uint8_t*)(NAND_ADDRESS|NAND_CMD)=NAND_ERASE1;
-	rt_thread_mdelay(NAND_TBERS_DELAY);		//ç­‰å¾…æ“¦é™¤æˆåŠŸ
-	if(NAND_WaitForReady()!=NSTA_READY)return NSTA_ERROR;//å¤±è´¥
-    return 0;	//æˆåŠŸ   
-} 
-//å…¨ç‰‡æ“¦é™¤NAND FLASH
+
+//È«Æ¬²Á³ıNAND FLASH
 void NAND_EraseChip(void)
 {
     rt_uint8_t status;
     rt_uint16_t i=0;
-    for(i=0;i<nand_dev.block_totalnum;i++) //å¾ªç¯æ“¦é™¤æ‰€æœ‰çš„å—
+    for(i=0;i<2048;i++)     //Ñ­»·²Á³ıËùÓĞµÄ¿é
     {
         status=NAND_EraseBlock(i);
         if(status)
-            NAND_DEBUG("Erase %d block fail!!ï¼ŒERRORCODE %d\r\n",i,status);//æ“¦é™¤å¤±è´¥
+            NAND_DEBUG("Erase %d block fail!!£¬ERRORCODE %d\r\n",i,status);//²Á³ıÊ§°Ü
     }
 }
 
-//è·å–ECCçš„å¥‡æ•°ä½/å¶æ•°ä½
-//oe:0,å¶æ•°ä½
-//   1,å¥‡æ•°ä½
-//eccval:è¾“å…¥çš„eccå€¼
-//è¿”å›å€¼:è®¡ç®—åçš„eccå€¼(æœ€å¤š16ä½)
-rt_uint16_t NAND_ECC_Get_OE(rt_uint8_t oe,rt_uint32_t eccval)
+
+static void DotFormat(uint64_t _ullVal, char *_sp) 
 {
-	rt_uint8_t i;
-	rt_uint16_t ecctemp=0;
-	for(i=0;i<24;i++)
+	/* ÊıÖµ´óÓÚµÈÓÚ10^9 */
+	if (_ullVal >= (U64)1e9) 
 	{
-		if((i%2)==oe)
-		{
-			if((eccval>>i)&0x01)ecctemp+=1<<(i>>1); 
-		}
+		_sp += sprintf (_sp, "%d.", (uint32_t)(_ullVal / (uint64_t)1e9));
+		_ullVal %= (uint64_t)1e9;
+		_sp += sprintf (_sp, "%03d.", (uint32_t)(_ullVal / (uint64_t)1e6));
+		_ullVal %= (uint64_t)1e6;
+		sprintf (_sp, "%03d.%03d", (uint32_t)(_ullVal / 1000), (uint32_t)(_ullVal % 1000));
+		return;
 	}
-	return ecctemp;
-} 
-//ECCæ ¡æ­£å‡½æ•°
-//eccrd:è¯»å–å‡ºæ¥,åŸæ¥ä¿å­˜çš„ECCå€¼
-//ecccl:è¯»å–æ•°æ®æ—¶,ç¡¬ä»¶è®¡ç®—çš„ECCåª
-//è¿”å›å€¼:0,é”™è¯¯å·²ä¿®æ­£
-//    å…¶ä»–,ECCé”™è¯¯(æœ‰å¤§äº2ä¸ªbitçš„é”™è¯¯,æ— æ³•æ¢å¤)
-rt_uint8_t NAND_ECC_Correction(rt_uint8_t* data_buf,rt_uint32_t eccrd,rt_uint32_t ecccl)
-{
-	rt_uint16_t eccrdo,eccrde,eccclo,ecccle;
-	rt_uint16_t eccchk=0;
-	rt_uint16_t errorpos=0; 
-	rt_uint32_t bytepos=0;  
-	eccrdo=NAND_ECC_Get_OE(1,eccrd);	//è·å–eccrdçš„å¥‡æ•°ä½
-	eccrde=NAND_ECC_Get_OE(0,eccrd);	//è·å–eccrdçš„å¶æ•°ä½
-	eccclo=NAND_ECC_Get_OE(1,ecccl);	//è·å–eccclçš„å¥‡æ•°ä½
-	ecccle=NAND_ECC_Get_OE(0,ecccl); 	//è·å–eccclçš„å¶æ•°ä½
-	eccchk=eccrdo^eccrde^eccclo^ecccle;
-	if(eccchk==0xFFF)	//å…¨1,è¯´æ˜åªæœ‰1bit ECCé”™è¯¯
+	
+	/* ÊıÖµ´óÓÚµÈÓÚ10^6 */
+	if (_ullVal >= (uint64_t)1e6) 
 	{
-		errorpos=eccrdo^eccclo; 
-		NAND_DEBUG("errorpos:%d\r\n",errorpos); 
-		bytepos=errorpos/8; 
-		data_buf[bytepos]^=1<<(errorpos%8);
-	}else				//ä¸æ˜¯å…¨1,è¯´æ˜è‡³å°‘æœ‰2bit ECCé”™è¯¯,æ— æ³•ä¿®å¤
+		_sp += sprintf (_sp,"%d.", (uint32_t)(_ullVal / (uint64_t)1e6));
+		_ullVal %= (uint64_t)1e6;
+		sprintf (_sp,"%03d.%03d", (uint32_t)(_ullVal / 1000), (uint32_t)(_ullVal % 1000));
+		return;
+	}
+	
+	/* ÊıÖµ´óÓÚµÈÓÚ10^3 */
+	if (_ullVal >= 1000) 
 	{
-		NAND_DEBUG("2bit ecc error or more\r\n");
-		return 1;
-	} 
-	return 0;
+		sprintf (_sp, "%d.%03d", (uint32_t)(_ullVal / 1000), (uint32_t)(_ullVal % 1000));
+		return;
+	}
+	
+	/* ÆäËüÊıÖµ */
+	sprintf (_sp,"%d",(U32)(_ullVal));
 }
- 
 
-#include <finsh.h>
-void nread(rt_uint32_t partion, rt_uint32_t page)
+static void ViewNandCapacity(void)
 {
-    int i;
-    rt_uint8_t spare[64];
-    rt_uint8_t *data_ptr;
-    struct rt_mtd_nand_device *device;
+	rt_uint8_t result;
+	Media_INFO info;
+	rt_uint64_t ullNANDCapacity;
+	FAT_VI *mc0;  
+	rt_uint8_t buf[15];
+	
+	// rt_hw_mtd_nand_init();
 
-    if (partion >= 3)
-        return;
-    device = &_partition[partion];
-    data_ptr = (rt_uint8_t*) rt_malloc(PAGE_DATA_SIZE);
-    if (data_ptr == RT_NULL)
-    {
-        rt_kprintf("no memory\n");
-        return;
+	/* ¼ÓÔØnandflash */
+	result = finit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		NAND_DEBUG("Mount failed, FAT32 format required\r\n");
+        NAND_DEBUG("FAT32 format in progress....\r\n");
+        if (fformat ("N0:") != 0){            
+            NAND_DEBUG ("Format failed\r\n");
+        }else{
+            NAND_DEBUG ("Format success\r\n");
+        }
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	/* »ñÈ¡volume label */
+	if (fvol ("N0:", (char *)buf) == 0) 
+	{
+		if (buf[0]){
+			NAND_DEBUG ("Volume label of NAND Flash id %s\r\n", buf);
+		}else{
+			NAND_DEBUG ("No volume label\r\n");
+		}
+	}else{
+		NAND_DEBUG ("Volume access error\r\n");
+	}
+
+	/* »ñÈ¡NAND FlashÊ£ÓàÈİÁ¿ */
+	ullNANDCapacity = ffree("N0:");
+	DotFormat(ullNANDCapacity, (char *)buf);
+	NAND_DEBUG("Free space of NAND Flash is %10s Bytes\r\n", buf);
+	
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");
+	}else{
+		NAND_DEBUG("uMount success\r\n");
+	}
+	
+	/* »ñÈ¡ÏàÓ¦´æ´¢Éè±¸µÄ¾ä±ú */
+	mc0 = ioc_getcb("N0");          
+   
+	/* ³õÊ¼»¯FATÎÄ¼şÏµÍ³¸ñÊ½µÄ´æ´¢Éè±¸ */
+	if (ioc_init (mc0) == 0) 
+	{
+		/* »ñÈ¡´æ´¢Éè±¸µÄÉÈÇøĞÅÏ¢ */
+		ioc_read_info (&info, mc0);
+
+		/* ×ÜµÄÉÈÇøÊı * ÉÈÇø´óĞ¡£¬NAND FlashµÄÉÈÇø´óĞ¡ÊÇ512×Ö½Ú */
+		ullNANDCapacity = (uint64_t)info.block_cnt << 9;
+		DotFormat(ullNANDCapacity, (char *)buf);
+		NAND_DEBUG("Total space = %10s Bytes\r\nTotal Sectors = %d \r\n", buf, info.block_cnt);
+	
+		NAND_DEBUG("Read Sectors = %d Bytes\r\n", info.read_blen);
+		NAND_DEBUG("Write Sectors = %d Bytes\r\n", info.write_blen);
+	}else{
+		NAND_DEBUG("ioc_init failed\r\n");
+	}
+	
+	/* Ğ¶ÔØNAND Flash */
+	if(ioc_uninit (mc0) != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+}
+
+
+static void ViewRootDir(const char *path)
+{
+	char filepath[50];
+	memset(filepath,0x0,50);
+	rt_uint8_t result;
+	FINFO info;
+	rt_uint64_t ullNANDCapacity;
+	rt_uint8_t buf[15];
+	
+    info.fileID = 0;                /* Ã¿´ÎÊ¹ÓÃffindº¯ÊıÇ°£¬info.fileID±ØĞë³õÊ¼»¯Îª0 */
+
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	NAND_DEBUG("Filename                  |  File size     | FileID  |    property   |   Date\r\n");
+	
+	/* 
+	   ½«¸ùÄ¿Â¼ÏÂµÄËùÓĞÎÄ¼şÁĞ³öÀ´¡£
+	   1. "*" »òÕß "*.*" ËÑË÷Ö¸¶¨Â·¾¶ÏÂµÄËùÓĞÎÄ¼ş
+	   2. "abc*"         ËÑË÷Ö¸¶¨Â·¾¶ÏÂÒÔabc¿ªÍ·µÄËùÓĞÎÄ¼ş
+	   3. "*.jpg"        ËÑË÷Ö¸¶¨Â·¾¶ÏÂÒÔ.jpg½áÎ²µÄËùÓĞÎÄ¼ş
+	   4. "abc*.jpg"     ËÑË÷Ö¸¶¨Â·¾¶ÏÂÒÔabc¿ªÍ·ºÍ.jpg½áÎ²µÄËùÓĞÎÄ¼ş
+	
+	   ÒÔÏÂÊÇÊµÏÖËÑË÷¸ùÄ¿Â¼ÏÂËùÓĞÎÄ¼ş
+	*/
+	if(path != NULL){
+		sprintf(filepath,"N0:\\%s*.*",path);
+	}else{
+		memcpy(filepath,"N0:*.*",sizeof("N0:*.*"));
+	}
+	// while(ffind ("N0:*.*", &info) == 0) 
+	while(ffind (filepath, &info) == 0)   
+	{ 
+		/* µ÷ÕûÎÄ¼şÏÔÊ¾´óĞ¡¸ñÊ½ */
+		DotFormat(info.size, (char *)buf);
+		
+		/* ´òÓ¡¸ùÄ¿Â¼ÏÂµÄËùÓĞÎÄ¼ş */
+		NAND_DEBUG ("%-20s %12s bytes       %04d  ",
+				info.name,
+				buf,
+				info.fileID);
+		
+		/* ÅĞ¶ÏÊÇÎÄ¼ş»¹ÊÇ×ÓÄ¿Â¼ */
+		if (info.attrib & ATTR_DIRECTORY)
+		{
+			NAND_DEBUG("  (0x%02x) doc", info.attrib);
+		}
+		else
+		{
+			NAND_DEBUG("  (0x%02x) File", info.attrib);
+		}
+		
+		/* ÏÔÊ¾ÎÄ¼şÈÕÆÚ */
+		NAND_DEBUG ("     %04d.%02d.%02d  %02d:%02d\r\n",
+                 info.time.year, info.time.mon, info.time.day,
+               info.time.hr, info.time.min);
     }
+	
+	if (info.fileID == 0)  
+	{
+		NAND_DEBUG ("No file found in Nandflash\r\n");
+	}
+	
+	/* »ñÈ¡NAND FlashÊ£ÓàÈİÁ¿ */
+	ullNANDCapacity = ffree("N0:");
+	DotFormat(ullNANDCapacity, (char *)buf);
+	NAND_DEBUG("Free space of NAND FLASH is %10s Bytes\r\n", buf);
 
-    rt_memset(spare, 0, sizeof(spare));
-    rt_memset(data_ptr, 0, PAGE_DATA_SIZE);
-    nandflash_readpage(device, page, data_ptr, PAGE_DATA_SIZE, spare, sizeof(spare));
-    for (i = 0; i < 512; i ++)
+access_fail:
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+	
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+}
+
+static void EchotextFile(const char* txt,const char *file)
+{
+	char filepath[50];
+	memset(filepath,0x0,50);
+	const rt_uint8_t WriteText[] = {"Ô¤·ÀĞÂĞÍ¹Ú×´²¡¶¾\r\n2020-04-07\r\n2019-nCov"};
+	FILE *fout;
+	rt_uint32_t bw;
+	rt_uint32_t i = 2;
+	rt_uint8_t result;
+
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	
+	/**********************************************************************************************************/
+	sprintf(filepath,"N0:\\%s",file);
+	fout = fopen (filepath, "a+"); 
+	if (fout != NULL) 
+	{
+		// NAND_DEBUG("open N0:\\glz\\test1.txt Sucess\r\n");
+		/* Ğ´Êı¾İ */
+		bw = fwrite (txt, sizeof(rt_uint8_t), strlen(txt)/sizeof(rt_uint8_t), fout);
+		if(bw == strlen(txt)/sizeof(rt_uint8_t))
+		{
+			NAND_DEBUG("write [%s] to %s done\r\n",txt,filepath);
+		}
+		else
+		{ 
+			NAND_DEBUG("write data error\r\n");
+		}
+		
+		/* ¹Ø±ÕÎÄ¼ş */
+		fclose(fout);
+	}
+	else
+	{
+		NAND_DEBUG("open %s falied\r\n",file);
+	}
+
+access_fail:	
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+}
+
+static void Formatflash(void)
+{
+	rt_uint8_t result;
+
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	
+	if (fformat ("N0:") != 0){            
+		NAND_DEBUG ("Format failed\r\n");
+	}else{
+		NAND_DEBUG ("Format flash success\r\n");
+	}
+
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+access_fail:
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+}
+
+static void CreateNewFile(const char *docname)
+{
+	char filepath[50];
+	memset(filepath,0x0,50);
+	FILE *fout;
+	rt_uint8_t result;
+
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	sprintf(filepath,"N0:\\%s\\",docname);
+	/**********************************************************************************************************/
+	fout = fopen (filepath, "w"); 
+	if (fout != NULL) 
+	{
+		NAND_DEBUG("creat doc[%s] success\r\n", docname);
+		/* ¹Ø±ÕÎÄ¼ş */
+		fclose(fout);
+	}
+	else
+	{
+		NAND_DEBUG("fail to creat doc[%s]\r\n", docname);
+	}
+	
+access_fail:	
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+}
+
+
+static void SeekFileData(void)
+{
+	const rt_uint8_t WriteText[] = {"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+	FILE *fin, *fout;
+	rt_uint32_t bw;
+	rt_uint32_t uiPos;
+	rt_uint8_t ucChar;
+	rt_uint8_t result;
+
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	
+	/**********************************************************************************************************/
+	/* ´ò¿ªÎÄ¼ş¼ĞtestÖĞµÄÎÄ¼ştest1.txt£¬Èç¹ûÃ»ÓĞ×ÓÎÄ¼ş¼ĞºÍtxtÎÄ¼ş»á×Ô¶¯´´½¨*/
+	fout = fopen ("N0:\\test.txt", "w"); 
+	if (fout != NULL){
+		NAND_DEBUG("open N0:\\test.txt success\r\n");
+		/* Ğ´Êı¾İ */
+		bw = fwrite (WriteText, sizeof(rt_uint8_t), sizeof(WriteText)/sizeof(rt_uint8_t), fout);
+		if(bw == sizeof(WriteText)/sizeof(rt_uint8_t)){
+			NAND_DEBUG("write data ok\r\n");
+		}else{ 
+			NAND_DEBUG("write data error\r\n");
+		}
+			
+		/* ¹Ø±ÕÎÄ¼ş */
+		fclose(fout);
+	}else{
+		NAND_DEBUG("open N0:\\test.txt fail\r\n");
+	}
+	
+	/***********************************************/
+	fin = fopen ("N0:\\test.txt","r");
+	if (fin != NULL)  
+	{
+		NAND_DEBUG("\r\n open N0:\\test.txt success\r\n");
+		
+		/* ¶ÁÈ¡ÎÄ¼ştest.txtµÄÎ»ÖÃ0µÄ×Ö·û */
+		int err = fseek (fin, 0L, SEEK_SET);
+		uiPos = ftell(fin); 	
+		ucChar = fgetc (fin);	
+		NAND_DEBUG("err[%d] file test.txt current read position£º%02d,byte£º%c\r\n",err, uiPos, ucChar);
+		
+		/* ¶ÁÈ¡ÎÄ¼ştest.txtµÄÎ»ÖÃ1µÄ×Ö·û */
+		fseek (fin, 1L, SEEK_SET);
+		uiPos = ftell(fin); 	
+		ucChar = fgetc (fin);		
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);
+
+		/* ¶ÁÈ¡ÎÄ¼ştest.txtµÄÎ»ÖÃ25µÄ×Ö·û */
+		fseek (fin, 25L, SEEK_SET);
+		uiPos = ftell(fin); 	
+		ucChar = fgetc (fin);		
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);
+		
+		/* Í¨¹ıÉÏÃæº¯ÊıµÄ²Ù×÷£¬µ±Ç°¶ÁĞ´Î»ÖÃÊÇ26
+		   ÏÂÃæº¯ÊıÊÇÔÚµ±Ç°Î»ÖÃµÄ»ù´¡ÉÏºóÍË2¸öÎ»ÖÃ£¬Ò²¾ÍÊÇ24£¬µ÷ÓÃº¯Êıfgetcºó£¬Î»ÖÃ¾ÍÊÇ25
+		 */
+		fseek (fin, -2L, SEEK_CUR);
+		uiPos = ftell(fin); 	
+		ucChar = fgetc (fin);		
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);
+		
+		/* ¶ÁÈ¡ÎÄ¼ştest.txtµÄµ¹ÊıµÚ2¸ö×Ö·û, ×îºóÒ»¸öÊÇ'\0' */
+		fseek (fin, -2L, SEEK_END); 
+		uiPos = ftell(fin); 
+		ucChar = fgetc (fin);
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);
+		
+		/* ½«¶ÁÈ¡Î»ÖÃÖØĞÂ¶¨Î»µ½ÎÄ¼ş¿ªÍ· */
+		rewind(fin);  
+		uiPos = ftell(fin); 
+		ucChar = fgetc (fin);
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);	
+		
+		/* 
+		   ÕâÀïÊÇÑİÊ¾Ò»ÏÂungetcµÄ×÷ÓÃ£¬´Ëº¯Êı¾ÍÊÇ½«µ±Ç°µÄ¶ÁÈ¡Î»ÖÃÆ«ÒÆ»ØÒ»¸ö×Ö·û£¬
+		   ¶øfgetcµ÷ÓÃºóÎ»ÖÃÔö¼ÓÒ»¸ö×Ö·û¡£
+		 */
+		fseek (fin, 0L, SEEK_SET);
+		ucChar = fgetc (fin);
+		uiPos = ftell(fin); 
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);
+		ungetc(ucChar, fin); 
+		uiPos = ftell(fin); 
+		NAND_DEBUG("file test.txt current read position£º%02d,byte£º%c\r\n", uiPos, ucChar);
+		
+		/* ¹Ø±Õ*/
+		fclose (fin);
+	}
+	else
+	{
+		NAND_DEBUG("open N0:\\test.txt fail\r\n");
+	}
+	
+	/***********************************************/
+	fin = fopen ("N0:\\test.txt","r+");
+	if (fin != NULL)  
+	{
+		NAND_DEBUG("\r\n open N0:\\test.txt success\r\n");
+		
+		/* ÎÄ¼ştest.txtµÄÎ»ÖÃ2²åÈëĞÂ×Ö·û '£¡' */
+		fseek (fin, 2L, SEEK_SET);
+		// ucChar = fputc ('!', fin);
+		fwrite ("!", sizeof(rt_uint8_t), sizeof("!")/sizeof(rt_uint8_t), fin);
+		/* Ë¢ĞÂÊı¾İµ½ÎÄ¼şÄÚ */
+		// fflush(fin);		
+
+		fseek (fin, 2L, SEEK_SET);
+		uiPos = ftell(fin); 
+		ucChar = fgetc (fin);				
+		NAND_DEBUG("file test.txt position£º%02d,New characters have been inserted£º%c\r\n", uiPos, ucChar);
+	
+		
+		/* ÎÄ¼ştest.txtµÄµ¹ÊıµÚ2¸ö×Ö·û, ²åÈëĞÂ×Ö·û ¡®&¡¯ £¬×îºóÒ»¸öÊÇ'\0' */
+		fflush(fin);	
+		fseek (fin, -2L, SEEK_END); 
+		// ucChar = fputc ('&', fin);
+		fwrite ("&", sizeof(rt_uint8_t), sizeof("&")/sizeof(rt_uint8_t), fin);
+		/* Ë¢ĞÂÊı¾İµ½ÎÄ¼şÄÚ */
+		fflush(fin);	
+
+		fseek (fin, -2L, SEEK_END); 
+		uiPos = ftell(fin); 
+		ucChar = fgetc (fin);	
+		NAND_DEBUG("file test.txt position£º%02d,New characters have been inserted£º%c\r\n", uiPos, ucChar);
+		
+		/* ¹Ø±Õ*/
+		fclose (fin);
+	}
+	else
+	{
+		NAND_DEBUG("\r\n open N0:\\test.txt fail\r\n");
+	}
+	
+access_fail:	
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		NAND_DEBUG("uMount success\r\n");	
+	}
+
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+
+}
+FINSH_FUNCTION_EXPORT_ALIAS(SeekFileData, __cmd_seek, file seek);
+
+static void ReadFileData(const char* file)
+{
+	rt_uint8_t Readbuf[50];
+	char filepath[50];
+	memset(filepath,0x0,50);
+	FILE *fin;
+	rt_uint32_t bw;
+	rt_uint8_t result;
+
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	
+	/**********************************************************************************************************/
+	sprintf(filepath,"N0:\\%s",file);
+	fin = fopen (filepath, "r"); 
+	if (fin != NULL) 
+	{
+		// NAND_DEBUG("<1>open %s success\r\n",filepath);
+		
+		/* ·ÀÖ¹¾¯¸æ */
+		(void) NULL;
+		
+		/* ¶ÁÊı¾İ */
+		bw = fread(Readbuf, sizeof(rt_uint8_t), 50/sizeof(rt_uint8_t), fin);
+		if(bw > 0)
+		{
+			Readbuf[bw] = NULL;
+			NAND_DEBUG("%s\r\n", Readbuf);
+		}
+		else
+		{ 
+			NAND_DEBUG("read failed\r\n");
+		}
+		
+		/* ¹Ø±ÕÎÄ¼ş */
+		fclose(fin);
+	}
+	else
+	{
+		NAND_DEBUG("<1>open %s failed and Maybe the file doesn't exist\r\n",filepath);
+	}
+	
+access_fail:
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+}
+
+static void DeleteDirFile(const char* file)
+{
+	char filepath[50];
+	memset(filepath,0x0,50);
+	rt_uint8_t result;
+	
+	/* ¼ÓÔØNAND Flash */
+	result = finit("N0:");
+	if(result != NULL){
+		/* Èç¹û¹ÒÔØÊ§°Ü£¬Îñ±Ø²»ÒªÔÙµ÷ÓÃFlashFSµÄÆäËüAPIº¯Êı£¬·ÀÖ¹½øÈëÓ²¼şÒì³£ */
+		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
+		goto access_fail;
+	}else{
+		// NAND_DEBUG("Mount success (%s)\r\n", ReVal_Table[result]);
+	}
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+	
+	/* É¾³ıÎÄ¼ş speed1.txt */
+	sprintf(filepath, "N0:\\%s", file);		/* Ã¿Ğ´1´Î£¬ĞòºÅµİÔö */
+	result = fdelete (filepath);
+	if (result != NULL) 
+	{
+		printf("[%s] is not exist£¨return£º%d£©\r\n", filepath, result);
+	}
+	else
+	{
+		printf("delete [%s] done\r\n", filepath);
+	}
+	
+access_fail:
+	/* Ğ¶ÔØNAND Flash */
+	result = funinit("N0:");
+	if(result != NULL){
+		NAND_DEBUG("uMount failed\r\n");		
+	}else{
+		// NAND_DEBUG("uMount success\r\n");	
+	}
+
+	NAND_DEBUG("------------------------------------------------------------------\r\n");
+}
+
+static void glz_nand(int argc, char **argv)
+{
+    /* If the number of arguments less than 2 */
+    if (argc < 2)
     {
-        rt_kprintf("0x%X,",data_ptr[i]);
+help:
+        rt_kprintf("\n");
+        rt_kprintf("glz_nand [OPTION] [PARAM ...]\n");
+        rt_kprintf("         ls                           ÏÔÊ¾Ö¸¶¨¹¤×÷Ä¿Â¼ÏÂÖ®ÄÚÈİ\n");
+        rt_kprintf("         cat        <filename>        ÏÔÊ¾ÎÄ¼şÄÚÈİ\n");
+        rt_kprintf("         mkdir      <docname>         ´´½¨ÎÄ¼ş¼Ğ\n");
+        rt_kprintf("         rm         <filename>        É¾³ıÎÄ¼ş\n");
+        rt_kprintf("         formatall                    ´ÅÅÌ¸ñÊ½»¯\n");
+		rt_kprintf("         df                           ÏÔÊ¾´ÅÅÌ¿Õ¼ä\n");
+		rt_kprintf("         echo <text> > <filename>     ÏÔÊ¾´ÅÅÌ¿Õ¼ä\n");
+        return ;
     }
-
-    rt_kprintf("\n spare\n");
-    for (i = 0; i < sizeof(spare); i ++)
+    else if (!strcmp(argv[1], "ls"))
     {
-        rt_kprintf("0x%X,",spare[i]);
+		if(argv[2]  != NULL){
+			ViewRootDir(argv[2]);
+		}else{
+			ViewRootDir(NULL);
+		}
     }
-    rt_kprintf("\n\n");
-
-    /* release memory */
-    rt_free(data_ptr);
-}
-
-void nwrite(rt_uint32_t partion, int page)
-{
-    int i;
-    rt_uint8_t spare[64];
-    rt_uint8_t *data_ptr;
-    struct rt_mtd_nand_device *device;
-
-    if (partion >= 3)
-        return;
-    device = &_partition[partion];
-
-    data_ptr = (rt_uint8_t*) rt_malloc (PAGE_DATA_SIZE);
-    if (data_ptr == RT_NULL)
+    else if (!strcmp(argv[1], "cat"))
     {
-        rt_kprintf("no memory.\n");
-        return;
+        if (argc < 3)
+        {
+            rt_kprintf("The input parameters are too few!\n");
+            goto help;
+        }
+		ReadFileData(argv[2]);
     }
-
-    /* Need random data to test ECC */
-    for (i = 0; i < PAGE_DATA_SIZE; i ++)
-        data_ptr[i] = i/5 -i;
-    rt_memset(spare, 0xdd, sizeof(spare));
-    nandflash_writepage(device, page, data_ptr, PAGE_DATA_SIZE, spare, sizeof(spare));
-
-    rt_free(data_ptr);
-}
-
-void ncopy(rt_uint32_t partion, int src, int dst)
-{
-    struct rt_mtd_nand_device *device;
-
-    if (partion >= 3)
-        return;
-    device = &_partition[partion];
-    nandflash_pagecopy(device, src, dst);
-}
-
-void nerase(int partion, int block)
-{
-    struct rt_mtd_nand_device *device;
-
-    if (partion >= 3)
-        return;
-    device = &_partition[partion];
-    nandflash_eraseblock(device, block);
-}
-
-void nerase_all(rt_uint32_t partion)
-{
-    rt_uint32_t index;
-    struct rt_mtd_nand_device *device;
-
-    if (partion >= 3)
-        return;
-    device = &_partition[partion];
-    for (index = 0; index < device->block_total; index ++)
+    else if (!strcmp(argv[1], "echo"))
     {
-        nandflash_eraseblock(device, index);
+        if (argc < 4)
+        {
+            rt_kprintf("The input parameters are too few!\n");
+            goto help;
+        }
+		if(!strcmp(argv[3], ">")){
+			EchotextFile(argv[2],argv[4]);
+		}else{
+			rt_kprintf("bad parameters\n");
+		}
+    }
+    else if (!strcmp(argv[1], "formatall"))
+    {
+		Formatflash();
+    }
+	else if (!strcmp(argv[1], "df"))
+    {
+		ViewNandCapacity();
+    }
+	else if (!strcmp(argv[1], "df"))
+    {
+		ViewNandCapacity();
+    }
+	else if (!strcmp(argv[1], "mkdir"))
+    {
+		if (argc < 2)
+        {
+            rt_kprintf("The input parameters are too few!\n");
+            goto help;
+        }
+		CreateNewFile(argv[2]);
+    }
+	else if (!strcmp(argv[1], "rm"))
+    {
+		if (argc < 2)
+        {
+            rt_kprintf("The input parameters are too few!\n");
+            goto help;
+        }
+		DeleteDirFile(argv[2]);
+    }
+    else
+    {
+        rt_kprintf("Input parameters are not supported!\n");
+        goto help;
     }
 }
-
-void nid(void)
-{
-    nandflash_readid(0);
-}
-
-FINSH_FUNCTION_EXPORT(nid, nand id);
-FINSH_FUNCTION_EXPORT(ncopy, nand copy page);
-FINSH_FUNCTION_EXPORT(nerase, nand erase a block of one partiton);
-FINSH_FUNCTION_EXPORT(nerase_all, erase all blocks of a partition);
-FINSH_FUNCTION_EXPORT(nwrite, nand write page);
-FINSH_FUNCTION_EXPORT(nread, nand read page);
+MSH_CMD_EXPORT(glz_nand, GLZ nand RL-FLASHFS test function);

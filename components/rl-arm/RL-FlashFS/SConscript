@@ -5,17 +5,18 @@ from building import *
 cwd = GetCurrentDir()
 
 src = Glob('*.c')
+LIBPATH = [cwd + '/lib']
 
 RLFlashFS = Split('''
 src/FS_NAND_FlashPrg.c
-lib/FSN_CM3.lib
 
 ''')
 
 src = src + RLFlashFS
+LIBS = ['FSN_CM3']
  
 CPPPATH = [cwd, cwd + '/inc']
 
-group = DefineGroup('RLFlashFS', src , depend = ['RT_USING_RL_ARM', 'RT_USING_RL_FLASHFS'], CPPPATH = CPPPATH)
+group = DefineGroup('RLFlashFS', src , depend = ['RT_USING_RL_ARM', 'RT_USING_RL_FLASHFS'], CPPPATH = CPPPATH,LIBS = LIBS, LIBPATH=LIBPATH)
 
 Return('group')

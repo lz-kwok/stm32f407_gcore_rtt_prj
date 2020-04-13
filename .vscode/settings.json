@@ -3,6 +3,9 @@
         "file_config.h": "c",
         "nand_stm32f4xx.h": "c",
         "drv_nand.h": "c",
-        "rtdevice.h": "c"
+        "rtdevice.h": "c",
+        "stdio.h": "c",
+        "rtl.h": "c",
+        "libc.h": "c"
     }
 }

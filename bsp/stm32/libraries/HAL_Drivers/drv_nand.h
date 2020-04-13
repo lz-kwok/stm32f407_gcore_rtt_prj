@@ -16,19 +16,7 @@
 #define NAND_MARK_SPARE_OFFSET  4
 
 #define NAND_PAGE_SIZE          (2048)
-
-#define NAND_PAGE_TOTAL_SIZE    528
-
-struct stm32f4_nand
-{
-    rt_uint8_t id[5];
-    struct rt_mutex lock;
-    struct rt_completion comp;
-};
-
-rt_uint8_t rt_hw_mtd_nand_init(void);
-
-
+#define NAND_PAGE_TOTAL_SIZE    PAGE_DATA_SIZE+PAGE_OOB_SIZE
 
 #define NAND_RB     GET_PIN(D,6)
 
@@ -45,30 +33,11 @@ rt_uint8_t rt_hw_mtd_nand_init(void);
 #define NAND_TBERS_DELAY			4			//tBERS等待延迟,典型值3.5ms,最大需要10ms
 
 
-//NAND属性结构体
-typedef struct
-{
-    rt_uint16_t page_totalsize;     	//每页总大小，main区和spare区总和
-    rt_uint16_t page_mainsize;      	//每页的main区大小
-    rt_uint16_t page_sparesize;     	//每页的spare区大小
-    rt_uint8_t  block_pagenum;      	//每个块包含的页数量
-    rt_uint16_t plane_blocknum;     	//每个plane包含的块数量
-    rt_uint16_t block_totalnum;     	//总的块数量
-    rt_uint16_t good_blocknum;      	//好块数量    
-    rt_uint16_t valid_blocknum;     	//有效块数量(供文件系统使用的好块数量)
-    rt_uint32_t id;             		//NAND FLASH ID
-    rt_uint16_t *lut;      			   	//LUT表，用作逻辑块-物理块转换
-	rt_uint32_t ecc_hard;				//硬件计算出来的ECC值
-	rt_uint32_t ecc_hdbuf[NAND_MAX_PAGE_SIZE/NAND_ECC_SECTOR_SIZE];//ECC硬件计算值缓冲区  	
-	rt_uint32_t ecc_rdbuf[NAND_MAX_PAGE_SIZE/NAND_ECC_SECTOR_SIZE];//ECC读取的值缓冲区
-}nand_attriute;      
 
-extern nand_attriute nand_dev;				//nand重要参数结构体 
+//#define CMD_AREA                   (rt_uint32_t)(1<<16)  /* A16 = CLE  high */
+//#define ADDR_AREA                  (rt_uint32_t)(1<<17)  /* A17 = ALE high */
+#define DATA_AREA                  ((rt_uint32_t)0x00000000)
 
-
-#define NAND_ADDRESS			0x70000000	//nand flash的访问地址,接NCE2,地址为:0X7000 0000
-#define NAND_CMD				1<<16		//发送命令
-#define NAND_ADDR				1<<17		//发送地址
 
 //NAND FLASH命令
 #define NAND_READID         	0X90    	//读ID指令
@@ -93,34 +62,18 @@ extern nand_attriute nand_dev;				//nand重要参数结构体
 #define NSTA_ECC1BITERR       	0X03		//ECC 1bit错误
 #define NSTA_ECC2BITERR       	0X04		//ECC 2bit以上错误
 
+//#define NAND_BUSY                  ((rt_uint8_t)0x00)
+//#define NAND_ERROR                 ((rt_uint8_t)0x01)
+//#define NAND_READY                 ((rt_uint8_t)0x40)
+//#define NAND_TIMEOUT_ERROR         ((rt_uint8_t)0x80)
 
 //NAND FLASH型号和对应的ID号
 #define W29N02GVSIAA			0xefda9095	//W29N02GVSIAA
 
- 
+rt_uint8_t rt_hw_mtd_nand_init(void);
 void rt_hw_mtd_nand_deinit(void);
-
-rt_uint8_t NAND_ModeSet(rt_uint8_t mode);
-rt_uint32_t NAND_ReadID(void);
-rt_uint8_t NAND_ReadStatus(void);
-rt_uint8_t NAND_WaitForReady(void);
-rt_uint8_t NAND_Reset(void);
-rt_uint8_t NAND_WaitRB(rt_uint8_t rb);
-void NAND_Delay(rt_uint32_t i);
-rt_uint8_t NAND_ReadPage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead);
-rt_uint8_t NAND_ReadPageComp(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_t CmpVal,rt_uint16_t NumByteToRead,rt_uint16_t *NumByteEqual);
-rt_uint8_t NAND_WritePage(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite);
-rt_uint8_t NAND_WritePageConst(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint32_t cval,rt_uint16_t NumByteToWrite);
-rt_uint8_t NAND_CopyPageWithoutWrite(rt_uint32_t Source_PageNum,rt_uint32_t Dest_PageNum);
-rt_uint8_t NAND_CopyPageWithWrite(rt_uint32_t Source_PageNum,rt_uint32_t Dest_PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToWrite);
-rt_uint8_t NAND_ReadSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead);
-rt_uint8_t NAND_WriteSpare(rt_uint32_t PageNum,rt_uint16_t ColNum,rt_uint8_t *pBuffer,rt_uint16_t NumByteToRead);
-rt_uint8_t NAND_EraseBlock(rt_uint32_t BlockNum);
+rt_uint8_t NAND_EraseBlock(rt_uint32_t _ulBlockNo);
 void NAND_EraseChip(void);
-
-rt_uint16_t NAND_ECC_Get_OE(rt_uint8_t oe,rt_uint32_t eccval);
-rt_uint8_t NAND_ECC_Correction(rt_uint8_t* data_buf,rt_uint32_t eccrd,rt_uint32_t ecccl);
-
 rt_uint8_t FSMC_NAND_ReadPage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead);
 rt_uint8_t FSMC_NAND_WritePage(rt_uint8_t *_pBuffer, rt_uint32_t _ulPageNo, rt_uint16_t _usAddrInPage, rt_uint16_t NumByteToRead);
 #endif /* __K9F2G08U0B_H__ */

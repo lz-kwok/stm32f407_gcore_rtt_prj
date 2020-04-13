@@ -40,7 +40,7 @@
 //   <o>CPU Clock Frequency [Hz]<0-1000000000>
 //   <i>Define the CPU Clock frequency used for
 //   <i>flash programming and erasing.
-#define CPU_CLK     168000000
+#define CPU_CLK     16000000
 
 // </h>
 // <e>Flash Drive
@@ -315,7 +315,7 @@
 //   <q>FAT Journal
 //   <i>Enable FAT Journal in order to guarantee
 //   <i>fail-safe FAT file system operation.
-#define NAND0_FSJ     1
+#define NAND0_FSJ     0
 
 //   <q>Default Drive [N0:]
 //   <i>Used when Drive letter not specified

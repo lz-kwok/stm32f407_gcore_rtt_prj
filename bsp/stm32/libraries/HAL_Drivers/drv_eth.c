@@ -85,7 +85,7 @@ static rt_err_t rt_stm32_eth_init(rt_device_t dev)
     /* ETHERNET Configuration */
     EthHandle.Instance = ETH;
     EthHandle.Init.MACAddr = (rt_uint8_t *)&stm32_eth_device.dev_addr[0];
-    EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
+    EthHandle.Init.AutoNegotiation = ETH_AUTONEGOTIATION_DISABLE;
     EthHandle.Init.PhyAddress = 0;
     EthHandle.Init.Speed = ETH_SPEED_100M;
     EthHandle.Init.DuplexMode = ETH_MODE_FULLDUPLEX;
