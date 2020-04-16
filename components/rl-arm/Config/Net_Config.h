@@ -13,6 +13,7 @@
 #define __NET_CONFIG_H__
 
 #include <RTL.h>
+#include "drv_eth.h"
 
 /* Definitions */
 #define ETH_ADRLEN      6         /* Ethernet Address Length in bytes        */

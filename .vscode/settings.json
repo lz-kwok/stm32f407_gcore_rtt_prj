@@ -6,6 +6,11 @@
         "rtdevice.h": "c",
         "stdio.h": "c",
         "rtl.h": "c",
-        "libc.h": "c"
+        "libc.h": "c",
+        "ethernetif.h": "c",
+        "rtthread.h": "c",
+        "netif.h": "c",
+        "drv_config.h": "c",
+        "uffs_mem.h": "c"
     }
 }

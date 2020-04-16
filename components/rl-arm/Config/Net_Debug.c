@@ -16,17 +16,17 @@
 // <q>Print Time Stamp
 // ===================
 //   <i> Enable printing the time-info in debug messages
-#define DBG_TIME       1
+#define DBG_TIME       0
 
 // <h>TCPnet Debug Definitions
 // ===========================
 //   <o>Memory Management Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Dynamic Memory debug messages
-#define DBG_MEM        1
+#define DBG_MEM        0
 
 //   <o>Ethernet Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Ethernet debug messages
-#define DBG_ETH        1
+#define DBG_ETH        0
 
 //   <o>PPP Debug   <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off PPP debug messages
@@ -38,82 +38,82 @@
 
 //   <o>ARP Debug   <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off ARP debug messages
-#define DBG_ARP        1
+#define DBG_ARP        0
 
 //   <o>IP Debug    <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off IP debug messages
-#define DBG_IP         1
+#define DBG_IP         0
 
 //   <o>ICMP Debug  <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off ICMP debug messages
-#define DBG_ICMP       1
+#define DBG_ICMP       0
 
 //   <o>IGMP Debug  <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off IGMP debug messages
-#define DBG_IGMP       1
+#define DBG_IGMP       0
 
 //   <o>UDP Debug   <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off UDP debug messages
-#define DBG_UDP        1
+#define DBG_UDP        0
 
 //   <o>TCP Debug   <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off TCP debug messages
-#define DBG_TCP        1
+#define DBG_TCP        0
 
 //   <o>NBNS Debug  <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off NetBIOS Name Service debug messages
-#define DBG_NBNS       1
+#define DBG_NBNS       0
 
 //   <o>DHCP Debug  <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Dynamic Host Configuration debug messages
-#define DBG_DHCP       1
+#define DBG_DHCP       0
 
 //   <o>DNS Debug   <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Domain Name Service debug messages
-#define DBG_DNS        1
+#define DBG_DNS        0
 
 //   <o>SNMP Debug  <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Simple Network Management debug messages
-#define DBG_SNMP       1
+#define DBG_SNMP       0
 
 //   <o>SNTP Debug  <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Simple Network Time debug messages
-#define DBG_SNTP       1
+#define DBG_SNTP       0
 
 //   <o>BSD Debug   <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off BSD Interface debug messages
-#define DBG_BSD        1
+#define DBG_BSD        0
 
 // </h>
 // <h>Application Debug Definitions
 // ================================
 //   <o>HTTP Server Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Web Server debug messages
-#define DBG_HTTP       1
+#define DBG_HTTP       0
 
 //   <o>FTP Server Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off FTP Server debug messages
-#define DBG_FTP        1
+#define DBG_FTP        0
 
 //   <o>FTP Client Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off FTP Client debug messages
-#define DBG_FTPC       1
+#define DBG_FTPC       0
 
 //   <o>Telnet Server Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off Telnet Server debug messages
-#define DBG_TNET       1
+#define DBG_TNET       0
 
 //   <o>TFTP Server Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off TFTP Server debug messages
-#define DBG_TFTP       1
+#define DBG_TFTP       0
 
 //   <o>TFTP Client Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off TFTP Client debug messages
-#define DBG_TFTPC      1
+#define DBG_TFTPC      0
 
 //   <o>SMTP Client Debug <0=> Off <1=> Errors only <2=> Full debug
 //   <i> Turn On/Off SMTP Client debug messages
-#define DBG_SMTP       1
+#define DBG_SMTP       0
 
 // </h>
 

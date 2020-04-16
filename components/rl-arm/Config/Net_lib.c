@@ -12,6 +12,9 @@
 #pragma thumb
 #pragma O3
 
+#include <rtthread.h>
+#include <rtdevice.h>
+
 /*----------------------------------------------------------------------------
  *      Library for Net_Config.c
  *---------------------------------------------------------------------------*/
@@ -366,6 +369,10 @@ DNS_CFG dns_config = {
 #endif
 #if (BSD_ENABLE) 
  static BSD_INFO bsd_scb[BSD_NUMSOCKS + BSD_SRVSOCKS];
+
+ static struct rt_mutex bsd_mutex;
+ static struct rt_mutex bsd_sem;
+
  #ifdef __RTX
   static OS_MUT bsd_mutex;
   #define BSD_INRTX  __TRUE
@@ -455,6 +462,9 @@ void init_system (void) {
   sntp_init ();
 #endif
 
+  rt_mutex_init(&bsd_mutex , "bsd_mutex", RT_IPC_FLAG_FIFO);
+  rt_mutex_init(&bsd_sem , "bsd_sem", RT_IPC_FLAG_FIFO);
+
 #if (BSD_ENABLE && __RTX)
   os_mut_init (bsd_mutex);
 #endif
@@ -465,7 +475,7 @@ void init_system (void) {
 
 void run_system (void) {
   /* Run configured interfaces and applications. */
-
+  rt_mutex_take(&bsd_mutex, RT_WAITING_FOREVER);
 #if (BSD_ENABLE && __RTX)
   os_mut_wait (bsd_mutex, 0xFFFF);
 #endif
@@ -527,6 +537,7 @@ void run_system (void) {
 #if (BSD_ENABLE && __RTX)
   os_mut_release (bsd_mutex);
 #endif
+  rt_mutex_release(&bsd_mutex);
 }
 
 
@@ -549,6 +560,21 @@ __used void bsd_resume (U8 tsk_id) {
 }
 #endif
 
+#if (BSD_ENABLE)
+__used void bsd_suspend (U8 *tsk_id) {
+  /* Suspend a socket owner task. */
+  rt_mutex_release(&bsd_mutex);
+  rt_mutex_take(&bsd_sem, RT_WAITING_FOREVER);
+  rt_mutex_take(&bsd_mutex, RT_WAITING_FOREVER);
+}
+
+__used void bsd_resume (U8 tsk_id) {
+  /* Resume a task waiting for a socket event. */
+  rt_mutex_release(&bsd_sem);
+}
+#endif
+
+
 
 /*--------------------------- bsd_lock/unlock -------------------------------*/
 
@@ -564,7 +590,17 @@ __used void bsd_unlock (void) {
 }
 #endif
 
+#if (BSD_ENABLE)
+__used void bsd_lock (void) {
+  /* Acquire mutex - Lock TCPnet functions. */
+  rt_mutex_take(&bsd_mutex, RT_WAITING_FOREVER);
+}
 
+__used void bsd_unlock (void) {
+  /* Release mutex - Unlock TCPnet functions. */
+  rt_mutex_release(&bsd_mutex);
+}
+#endif
 /*--------------------------- size optimization -----------------------------*/
 
 #if !(ETH_ENABLE)
@@ -624,7 +660,7 @@ void tcp_process (OS_FRAME *frame)   { ; }
 BOOL sntp_get_time (U8 *ipadr, void (*cbfunc)(U32)) { return(__FALSE); }
 #endif
 
-#if (BSD_ENABLE && !__RTX)
+#if (BSD_ENABLE)
 /* Empty functions for non RTX environment. */
 __used U8   bsd_wait   (BSD_INFO *bsd_s, U8 evt) { return (0);}
 __used void bsd_enable (BSD_INFO *bsd_s, U8 evt) { ; }

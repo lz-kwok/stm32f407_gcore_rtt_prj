@@ -3,14 +3,28 @@
 import os
 from building import *
 
-src = Split('''
+cwd = GetCurrentDir()
+src = Glob('*.c')
+
+RLFLASHFS = Split('''
 Config/File_Config.c
 ''')
-cwd = GetCurrentDir()
+
+RLTCPNET = Split('''
+Config/Net_Config.c
+Config/Net_lib.c
+Config/Net_Debug.c
+''')
 
 CPPPATH = [cwd + "/RL-RTX/inc"]
 CPPPATH += [cwd + "/Config"]
 list = os.listdir(cwd)
+
+if GetDepend(['RT_USING_RL_FLASHFS']):
+    src += RLFLASHFS
+   
+if GetDepend(['RT_USING_RL_TCPnet']):
+    src += RLTCPNET
 
 group = DefineGroup('RL_ARM', src, depend = ['RT_USING_RL_ARM'], CPPPATH = CPPPATH)
 

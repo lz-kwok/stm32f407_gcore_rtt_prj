@@ -20,7 +20,7 @@
 //   <i> This is the name under which embedded host
 //   <i> can be accessed on a local area network.
 //   <i> Default: "mcb2300"
-#define LHOST_NAME     "stm32-v6"
+#define LHOST_NAME     "yikai-glz"
 
 //   <o>Memory Pool size <1536-262144:4><#/4>
 //   <i> This is the size of a memory pool in bytes. Buffers for
@@ -88,7 +88,7 @@
 
 //     <o>Address byte 3 <0-255>
 //     <i> Default: 0
-#define _IP3           1
+#define _IP3           0
 
 //     <o>Address byte 4 <0-255>
 //     <i> Default: 100
@@ -229,13 +229,13 @@
 //   <i> When this option is enabled, local IP address, Net Mask
 //   <i> and Default Gateway are obtained automatically from
 //   <i> the DHCP Server on local LAN.
-#define DHCP_ENABLE    1
+#define DHCP_ENABLE    0
 
 //     <s.40>Vendor Class Identifier
 //     <i> This value is optional. If specified, it is added
 //     <i> to DHCP request message, identifying vendor type.
 //     <i> Default: ""
-#define DHCP_VCID      "armfly"
+#define DHCP_VCID      "yikai-glz"
 
 //     <q>Bootfile Name
 //     <i> This value is optional. If enabled, the Bootfile Name
@@ -549,7 +549,7 @@
 // <e>HTTP Server
 // ==============
 // <i> Enable or disable HTTP Server
-#define HTTP_ENABLE    1
+#define HTTP_ENABLE    0
 
 //   <o>Number of HTTP Sessions <1-10>
 //   <i> Number of simultaneously active HTTP Sessions.
@@ -691,7 +691,7 @@
 // <e>FTP Server
 // ==============
 // <i> Enable or disable FTP Server
-#define FTP_ENABLE     0
+#define FTP_ENABLE     1
 
 //   <o>Number of FTP Sessions <1-10>
 //   <i> Number of simultaneously active FTP Sessions
@@ -815,7 +815,7 @@
 // <e>SNTP Client
 // ==============
 // <i> Enable or disable SNTP Client
-#define SNTP_ENABLE    1
+#define SNTP_ENABLE    0
 
 //   <q>Broadcast Mode
 //   =================
@@ -849,7 +849,7 @@
 // <e>BSD Socket Interface
 // =======================
 // <i> Enable or disable Berkeley Socket Programming Interface
-#define BSD_ENABLE     0
+#define BSD_ENABLE     1
 
 //   <o>Number of BSD Sockets <1-20>
 //   <i> Number of available Berkeley Sockets

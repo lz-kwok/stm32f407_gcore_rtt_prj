@@ -16,6 +16,7 @@
 #include <rtdevice.h>
 #include <board.h>
 
+
 /* The PHY basic control register */
 #define PHY_BASIC_CONTROL_REG       0x00U
 #define PHY_RESET_MASK              (1<<15)
@@ -64,5 +65,11 @@
 #define PHY_INT_MASK                0
 
 #endif /* PHY_USING_DM9161CEP */
+
+#ifdef RT_USING_RL_TCPnet
+
+void init_ethernet (void);
+#endif
+
 
 #endif /* __DRV_ETH_H__ */
