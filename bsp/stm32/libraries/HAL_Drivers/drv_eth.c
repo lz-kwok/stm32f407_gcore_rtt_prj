@@ -55,8 +55,14 @@ struct rt_stm32_eth
 #define THREAD_TIMESLICE     20
 
 static struct rt_event event;
+static struct rt_mailbox tcpnet_rx_thread_mb;
+static char tcpnet_rx_thread_mb_pool[48 * 4];
+
+static struct rt_thread tcpnet_rx_thread;
+static char tcpnet_rx_thread_stack[1024];
 
 static rt_uint32_t ETH_GetRxPktSize(ETH_DMADescTypeDef *DMARxDesc);
+static void tcpnet_rx_thread_entry(void* parameter);
 #endif
 
 static ETH_DMADescTypeDef *DMARxDscrTab, *DMATxDscrTab;
@@ -435,6 +441,8 @@ void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
     OS_FRAME *frame;
     while(ETH_GetRxPktSize(heth->RxDesc))   
     {
+        // rt_mb_send(&tcpnet_rx_thread_mb, 0);
+
         HAL_StatusTypeDef state;
         uint16_t len = 0;
         uint8_t *buffer;
@@ -495,6 +503,9 @@ void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
                 put_in_queue (frame);
                 break;
             }
+        }else{
+            free_mem(frame);
+            return ;
         }
 
         /* Release descriptors to DMA */
@@ -520,7 +531,6 @@ void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
         }
 
         rt_event_send(&event, EVENT_MAIN);
-        // rt_event_send(&event, EVENT_ISR);
     }
 #endif 
 }
@@ -737,6 +747,8 @@ static void phy_monitor_thread_entry(void *parameter)
     }
 }
 
+
+
 /* Register the EMAC device */
 static int rt_hw_stm32_eth_init(void)
 {
@@ -809,6 +821,12 @@ static int rt_hw_stm32_eth_init(void)
         goto __exit;
     }
 #endif
+    rt_err_t result;
+
+    // result = rt_mb_init(&tcpnet_rx_thread_mb, "trxmb",
+    //                     &tcpnet_rx_thread_mb_pool[0], sizeof(tcpnet_rx_thread_mb_pool)/4,
+    //                     RT_IPC_FLAG_FIFO);
+    // RT_ASSERT(result == RT_EOK);
 
 #ifdef RT_USING_RL_TCPnet
     state = rt_stm32_eth_init();
@@ -817,13 +835,20 @@ static int rt_hw_stm32_eth_init(void)
     }
 #endif
 
-    rt_err_t result;
     result = rt_event_init(&event, "event", RT_IPC_FLAG_FIFO);
     if (result != RT_EOK)
     {
         rt_kprintf("init event failed.\n");
         state = -RT_ERROR;
     }
+
+    // result = rt_thread_init(&tcpnet_rx_thread, "trx", tcpnet_rx_thread_entry, RT_NULL,
+    //                         &tcpnet_rx_thread_stack[0], sizeof(tcpnet_rx_thread_stack),
+    //                         RT_THREAD_PRIORITY_MAX - 5, 16);
+    // RT_ASSERT(result == RT_EOK);
+
+    // result = rt_thread_startup(&tcpnet_rx_thread);
+
 
     /* start phy monitor */
     rt_thread_t tid;
@@ -859,6 +884,8 @@ static int rt_hw_stm32_eth_init(void)
                    sizeof(TCP_time_stack),
                    THREAD_PRIORITY, THREAD_TIMESLICE);
     rt_thread_startup(&TCP_time);
+
+
 __exit:
     if (state != RT_EOK)
     {
@@ -1034,6 +1061,104 @@ void int_enable_eth (void)
 void int_disable_eth (void) 
 {
 	HAL_NVIC_DisableIRQ(ETH_IRQn);
+}
+
+static void tcpnet_rx_thread_entry(void* parameter)
+{
+    rt_uint32_t device;
+
+    while (1)
+    {
+        if (rt_mb_recv(&tcpnet_rx_thread_mb, (rt_ubase_t *)&device, RT_WAITING_FOREVER) == RT_EOK)
+        {
+            OS_FRAME *frame;
+            HAL_StatusTypeDef state;
+            uint16_t len = 0;
+            uint8_t *buffer;
+            __IO ETH_DMADescTypeDef *dmarxdesc;
+            uint32_t bufferoffset = 0;
+            uint32_t payloadoffset = 0;
+            uint32_t byteslefttocopy = 0;
+            volatile uint32_t i = 0;
+
+            /* Get received frame */
+            state = HAL_ETH_GetReceivedFrame_IT(&EthHandle);
+            if (state != HAL_OK)
+            {
+                LOG_D("receive frame faild");
+            }
+
+            /* Obtain the size of the packet and put it into the "len" variable. */
+            len = EthHandle.RxFrameInfos.length;
+            buffer = (uint8_t *)EthHandle.RxFrameInfos.buffer;
+
+            LOG_D("receive frame len : %d", len);
+            if (len > 0)
+            {
+                /* We allocate a pbuf chain of pbufs from the Lwip buffer pool */
+                frame = alloc_mem (len | 0x80000000);
+            }
+
+        #ifdef ETH_RX_DUMP
+            dump_hex(buffer, p->tot_len);
+        #endif
+            // for(i=0;i<5000;i++);
+            if (frame != NULL)
+            {
+                dmarxdesc = EthHandle.RxFrameInfos.FSRxDesc;
+                bufferoffset = 0;
+                for (;;)
+                {
+                    byteslefttocopy = frame->length;
+                    payloadoffset = 0;
+
+                    /* Check if the length of bytes to copy in current pbuf is bigger than Rx buffer size*/
+                    while ((byteslefttocopy + bufferoffset) > ETH_RX_BUF_SIZE)
+                    {
+                        /* Copy data to pbuf */
+                        memcpy((uint8_t *)((uint8_t *)frame->data + payloadoffset), (uint8_t *)((uint8_t *)buffer + bufferoffset), (ETH_RX_BUF_SIZE - bufferoffset));
+
+                        /* Point to next descriptor */
+                        dmarxdesc = (ETH_DMADescTypeDef *)(dmarxdesc->Buffer2NextDescAddr);
+                        buffer = (uint8_t *)(dmarxdesc->Buffer1Addr);
+
+                        byteslefttocopy = byteslefttocopy - (ETH_RX_BUF_SIZE - bufferoffset);
+                        payloadoffset = payloadoffset + (ETH_RX_BUF_SIZE - bufferoffset);
+                        bufferoffset = 0;
+                    }
+                    /* Copy remaining data in pbuf */
+                    memcpy((uint8_t *)((uint8_t *)frame->data + payloadoffset), (uint8_t *)((uint8_t *)buffer + bufferoffset), byteslefttocopy);
+                    bufferoffset = bufferoffset + byteslefttocopy;
+                    put_in_queue (frame);
+                    break;
+                }
+            }
+
+            /* Release descriptors to DMA */
+            /* Point to first descriptor */
+            dmarxdesc = EthHandle.RxFrameInfos.FSRxDesc;
+            /* Set Own bit in Rx descriptors: gives the buffers back to DMA */
+            for (i = 0; i < EthHandle.RxFrameInfos.SegCount; i++)
+            {
+                dmarxdesc->Status |= ETH_DMARXDESC_OWN;
+                dmarxdesc = (ETH_DMADescTypeDef *)(dmarxdesc->Buffer2NextDescAddr);
+            }
+
+            /* Clear Segment_Count */
+            EthHandle.RxFrameInfos.SegCount = 0;
+
+            /* When Rx Buffer unavailable flag is set: clear it and resume reception */
+            if ((EthHandle.Instance->DMASR & ETH_DMASR_RBUS) != (uint32_t)RESET)
+            {
+                /* Clear RBUS ETHERNET DMA flag */
+                EthHandle.Instance->DMASR = ETH_DMASR_RBUS;
+                /* Resume DMA reception */
+                EthHandle.Instance->DMARPDR = 0;
+            }
+
+            rt_event_send(&event, EVENT_MAIN);  
+        }
+    }
 }
 #endif
 

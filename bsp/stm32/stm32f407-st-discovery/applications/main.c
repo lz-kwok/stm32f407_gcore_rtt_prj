@@ -63,19 +63,19 @@ void phy_reset(void)
 
 int main(void)
 {
-    char dbuf[10];
-	int len;
-	int sock, sd, res;
-	SOCKADDR_IN addr;
-	SOCKADDR_IN ReAddr;
+    // char dbuf[10];
+	// int len;
+	// int sock, sd, res;
+	// SOCKADDR_IN addr;
+	// SOCKADDR_IN ReAddr;
 
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
     finit("N0:");
     init_TcpNet ();
-    rt_thread_mdelay(10000);        //等协议栈初始化完
+    // rt_thread_mdelay(10000);        //等协议栈初始化完
 
-    unsigned long sck_mode;
+    // unsigned long sck_mode;
     
     while (RT_TRUE)
     {   
@@ -126,40 +126,40 @@ int main(void)
 		   第2个参数SOCK_STREAM：表示数据流通信类型，即使用的TCP。
 		   第3个参数0 ：配置为0的话，自动跟第2个参数进行协议匹配，这里就是TCP协议。
 		*/
-		sock = socket (AF_INET, SOCK_STREAM, 0);
+		// sock = socket (AF_INET, SOCK_STREAM, 0);
 		
-		/* 设置使能KEEP ALIVE，让客户端和服务器保存连接 */
-		sck_mode = 1;
-		res = ioctlsocket (sock, FIO_KEEP_ALIVE, &sck_mode);
-		if (res == SCK_SUCCESS) 
-		{
-			rt_kprintf("KEEP ALIVE set done\r\n");
-		}
-		else 
-		{
-			rt_kprintf("KEEP ALIVE set fail\r\n");
-		}
+		// /* 设置使能KEEP ALIVE，让客户端和服务器保存连接 */
+		// sck_mode = 1;
+		// res = ioctlsocket (sock, FIO_KEEP_ALIVE, &sck_mode);
+		// if (res == SCK_SUCCESS) 
+		// {
+		// 	rt_kprintf("KEEP ALIVE set done\r\n");
+		// }
+		// else 
+		// {
+		// 	rt_kprintf("KEEP ALIVE set fail\r\n");
+		// }
 
-		/* 端口号设置为1001 */
-		addr.sin_port = htons(LocalPort_NUM);
+		// /* 端口号设置为1001 */
+		// addr.sin_port = htons(LocalPort_NUM);
 		
-		/* 与函数socket中的AF_INET作用一样 */
-		addr.sin_family = PF_INET;
+		// /* 与函数socket中的AF_INET作用一样 */
+		// addr.sin_family = PF_INET;
 		
-		addr.sin_addr.s_b1 = IP1;
-		addr.sin_addr.s_b2 = IP2;
-		addr.sin_addr.s_b3 = IP3;
-		addr.sin_addr.s_b4 = IP4;
+		// addr.sin_addr.s_b1 = IP1;
+		// addr.sin_addr.s_b2 = IP2;
+		// addr.sin_addr.s_b3 = IP3;
+		// addr.sin_addr.s_b4 = IP4;
 
-		/* 客户端连接远程服务器，如果远程服务器还未创建，此函数会立即返回 */
-		res = connect (sock, (SOCKADDR *)&addr, sizeof (addr));
-		rt_kprintf("客户端连接远程服务器状态%s\r\n", ReVal_Table[abs(res)]);
+		// /* 客户端连接远程服务器，如果远程服务器还未创建，此函数会立即返回 */
+		// res = connect (sock, (SOCKADDR *)&addr, sizeof (addr));
+		// rt_kprintf("客户端连接远程服务器状态%s\r\n", ReVal_Table[abs(res)]);
 
 
 
-        rt_thread_mdelay(50);
+        rt_thread_mdelay(5000);
 
-        for(;;){
+        // for(;;){
             /*
             socket数据接收函数，如果recv工作在阻塞模式，使用这个函数注意以下事项：
             1. 此函数的溢出时间受到Net_Config.c中宏定义 BSD_RCVTOUT 的限制。溢出时间到会自动退出。
@@ -168,73 +168,73 @@ int main(void)
             3. 实际接收到数据大小通过判断此函数的返回值即可。
             */
             rt_thread_mdelay(50);
-            res = recv (sock, dbuf, sizeof(dbuf), 0);
-            if (res <= 0) 
-            {
-                // // closesocket (sock);
-                // rt_kprintf("退出接收函数，重新开始监听%s\r\n", ReVal_Table[abs(res)]);
-                // break;
-            }
-            else
-            {
-                rt_kprintf("Receive Data Length = %d\r\n", res);
-                switch(dbuf[0])
-                {
-                    /* 字符命令 1 */
-                    case '1':
-                        sendbuf[0] = '1';
-                        sendbuf[1] = '2';
-                        sendbuf[2] = '3';
-                        sendbuf[3] = '4';
-                        sendbuf[4] = '5';
-                        sendbuf[5] = '6';
-                        sendbuf[6] = '7';
-                        sendbuf[7] = '8';
-                        sendbuf[8] = '\r';
-                        sendbuf[9] = '\n';						
-                        res = send (sock, (char *)sendbuf, 10, 0);
-                        if (res < 0) 
-                        {
-                            rt_kprintf("函数send发送数据失败\r\n");
-                        }
-                        else
-                        {
-                            rt_kprintf("函数send发送数据成功\r\n");							
-                        }
-                        break;
+        //     res = recv (sock, dbuf, sizeof(dbuf), 0);
+        //     if (res <= 0) 
+        //     {
+        //         // // closesocket (sock);
+        //         // rt_kprintf("退出接收函数，重新开始监听%s\r\n", ReVal_Table[abs(res)]);
+        //         // break;
+        //     }
+        //     else
+        //     {
+        //         rt_kprintf("Receive Data Length = %d\r\n", res);
+        //         switch(dbuf[0])
+        //         {
+        //             /* 字符命令 1 */
+        //             case '1':
+        //                 sendbuf[0] = '1';
+        //                 sendbuf[1] = '2';
+        //                 sendbuf[2] = '3';
+        //                 sendbuf[3] = '4';
+        //                 sendbuf[4] = '5';
+        //                 sendbuf[5] = '6';
+        //                 sendbuf[6] = '7';
+        //                 sendbuf[7] = '8';
+        //                 sendbuf[8] = '\r';
+        //                 sendbuf[9] = '\n';						
+        //                 res = send (sock, (char *)sendbuf, 10, 0);
+        //                 if (res < 0) 
+        //                 {
+        //                     rt_kprintf("函数send发送数据失败\r\n");
+        //                 }
+        //                 else
+        //                 {
+        //                     rt_kprintf("函数send发送数据成功\r\n");							
+        //                 }
+        //                 break;
                     
-                    /* 字符命令 2 */
-                    case '2':
-                        /* 将数据缓冲区清成字符0，方便网络调试助手查看数据 */
-                        len = sizeof(sendbuf);
-                        memset(sendbuf, 48, len);
+        //             /* 字符命令 2 */
+        //             case '2':
+        //                 /* 将数据缓冲区清成字符0，方便网络调试助手查看数据 */
+        //                 len = sizeof(sendbuf);
+        //                 memset(sendbuf, 48, len);
                     
-                        /* 这里仅初始化了数据包的前4个字节和最后4个字节 */
-                        sendbuf[0] = 'a';
-                        sendbuf[1] = 'b';
-                        sendbuf[2] = 'c';
-                        sendbuf[3] = 'd';
-                        sendbuf[len - 4] = 'e';
-                        sendbuf[len - 3] = 'f';
-                        sendbuf[len - 2] = 'g';
-                        sendbuf[len - 1] = 'h';					
-                        res = send (sock, (char *)sendbuf, len, 0);
-                        if (res < 0) 
-                        {
-                            rt_kprintf("函数send发送数据失败%s\r\n", ReVal_Table[abs(res)]);
-                        }
-                        else
-                        {
-                            rt_kprintf("函数send成功发送数据 = %d字节\r\n", res);							
-                        }
-                        break;
+        //                 /* 这里仅初始化了数据包的前4个字节和最后4个字节 */
+        //                 sendbuf[0] = 'a';
+        //                 sendbuf[1] = 'b';
+        //                 sendbuf[2] = 'c';
+        //                 sendbuf[3] = 'd';
+        //                 sendbuf[len - 4] = 'e';
+        //                 sendbuf[len - 3] = 'f';
+        //                 sendbuf[len - 2] = 'g';
+        //                 sendbuf[len - 1] = 'h';					
+        //                 res = send (sock, (char *)sendbuf, len, 0);
+        //                 if (res < 0) 
+        //                 {
+        //                     rt_kprintf("函数send发送数据失败%s\r\n", ReVal_Table[abs(res)]);
+        //                 }
+        //                 else
+        //                 {
+        //                     rt_kprintf("函数send成功发送数据 = %d字节\r\n", res);							
+        //                 }
+        //                 break;
                 
-                    /* 其它数值不做处理 */
-                    default:                     
-                        break;
-                }
-            }
-        }
+        //             /* 其它数值不做处理 */
+        //             default:                     
+        //                 break;
+        //         }
+        //     }
+        // }
 		
     
     }
@@ -243,7 +243,7 @@ int main(void)
         溢出时间到，远程设备断开连接等，程序都会执行到这里，我们在这里关闭socket，
         程序返回到第一个大while循环的开头重新创建socket并监听。
     */
-    closesocket (sock);
+    // closesocket (sock);
 
     return RT_EOK;
 }
