@@ -7,12 +7,21 @@ cwd = GetCurrentDir()
 src = Glob('*.c')
 LIBPATH = [cwd + '/lib']
 
-RLFlashFS = Split('''
+NANDFLASH = Split('''
 src/FS_NAND_FlashPrg.c
 
 ''')
 
-src = src + RLFlashFS
+MICROSD = Split('''
+src/FS_MicroSD_Cardprg.c
+
+''')
+
+src = src + NANDFLASH
+
+if GetDepend(['BSP_USING_TFCARD']):
+    src += MICROSD
+
 LIBS = ['FSN_CM3']
  
 CPPPATH = [cwd, cwd + '/inc']

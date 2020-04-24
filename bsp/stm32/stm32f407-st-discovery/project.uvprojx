@@ -874,6 +874,13 @@
           </Files>
           <Files>
             <File>
+              <FileName>FS_MicroSD_Cardprg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\components\rl-arm\RL-FlashFS\src\FS_MicroSD_Cardprg.c</FilePath>
+            </File>
+          </Files>
+          <Files>
+            <File>
               <FileName>FSN_CM3.lib</FileName>
               <FileType>4</FileType>
               <FilePath>..\..\..\components\rl-arm\RL-FlashFS\lib\FSN_CM3.lib</FilePath>

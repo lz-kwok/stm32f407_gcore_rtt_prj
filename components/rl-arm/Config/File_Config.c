@@ -132,13 +132,13 @@
 // <e>Memory Card Drive 0
 // ======================
 // <i>Enable Memory Card Drive  [M0:]
-#define MC0_EN      0
+#define MC0_EN      1
 
 //   <o>Bus Mode <0=>SD-Native <1=>SPI
 //   <i>Define Memory Card bus interface mode.
 //   <i>SD-Native mode needs MCI peripheral.
 //   <i>SPI mode uses SD Card in SPI mode.
-#define MC0_SPI     0
+#define MC0_SPI     1
           
 //   <o>File System Cache <0=>OFF <1=>1 KB <2=>2 KB <4=>4 KB
 //                        <8=>8 KB <16=>16 KB <32=>32 KB
@@ -167,7 +167,7 @@
 
 //   <q>Default Drive [M0:]
 //   <i>Used when Drive letter not specified
-#define MC0_DEF     1
+#define MC0_DEF     0
 
 // </e>
 // <e>Memory Card Drive 1
