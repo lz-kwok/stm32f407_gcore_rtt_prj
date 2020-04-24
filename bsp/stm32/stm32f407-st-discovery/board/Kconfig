@@ -27,6 +27,14 @@ menu "Onboard Peripheral Drivers"
                 bool "Enable SIM800C For GPRS"
                 default n
         endif
+    
+    menuconfig BSP_USING_TFCARD
+        bool "Enable TF CARD"
+        default n
+        select BSP_USING_SPI
+        select BSP_USING_SPI2
+        select BSP_SPI2_TX_USING_DMA
+        select BSP_SPI2_RX_USING_DMA
 endmenu
 
 menu "On-chip Peripheral Drivers"
@@ -82,6 +90,21 @@ menu "On-chip Peripheral Drivers"
                 bool "Enable SPI1 RX DMA"
                 depends on BSP_USING_SPI1
                 select BSP_SPI1_TX_USING_DMA
+                default n
+            
+            config BSP_USING_SPI2
+                bool "Enable SPI2 BUS"
+                default n
+
+            config BSP_SPI2_TX_USING_DMA
+                bool "Enable SPI2 TX DMA"
+                depends on BSP_USING_SPI2
+                default n
+                
+            config BSP_SPI2_RX_USING_DMA
+                bool "Enable SPI2 RX DMA"
+                depends on BSP_USING_SPI2
+                select BSP_SPI2_TX_USING_DMA
                 default n
         endif
 

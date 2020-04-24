@@ -87,6 +87,7 @@
 #define RT_USING_PIN
 #define RT_USING_MTD_NAND
 #define RT_MTD_NAND_DEBUG
+#define RT_USING_SPI
 
 /* Using USB */
 
@@ -191,6 +192,7 @@
 
 #define PHY_USING_LAN8720A
 #define BSP_USING_ETH
+#define BSP_USING_TFCARD
 
 /* On-chip Peripheral Drivers */
 
@@ -198,6 +200,10 @@
 #define BSP_USING_UART
 #define BSP_USING_UART1
 #define BSP_USING_UART3
+#define BSP_USING_SPI
+#define BSP_USING_SPI2
+#define BSP_SPI2_TX_USING_DMA
+#define BSP_SPI2_RX_USING_DMA
 #define BSP_USING_USBD_FS
 #define BSP_USING_USBD_FS_DEVICE
 #define BSP_USING_FMC
