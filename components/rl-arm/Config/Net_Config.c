@@ -128,7 +128,7 @@
 
 //     <o>Address byte 3 <0-255>
 //     <i> Default: 0
-#define _GW3           1
+#define _GW3           0
 
 //     <o>Address byte 4 <0-255>
 //     <i> Default: 254

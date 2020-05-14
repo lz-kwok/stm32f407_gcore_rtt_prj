@@ -14,6 +14,11 @@
 
 #include <RTL.h>
 
+typedef enum {
+  tf_Card = 0,
+  Nand_Flash = 1
+};
+
 /* FAT File Attributes */
 #define ATTR_READ_ONLY   0x01
 #define ATTR_HIDDEN      0x02

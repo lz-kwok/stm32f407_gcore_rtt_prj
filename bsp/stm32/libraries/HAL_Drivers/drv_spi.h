@@ -59,4 +59,8 @@ struct stm32_spi
     struct rt_spi_bus spi_bus;
 };
 
+#if defined(BSP_USING_SPI2)
+rt_uint8_t SPI2_ReadWriteByte(rt_uint8_t TxData);
+#endif
+
 #endif /*__DRV_SPI_H_ */

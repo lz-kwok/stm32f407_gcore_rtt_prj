@@ -18,12 +18,24 @@
 #include  <math.h>
 #include "RTL.h"
 #include "drv_nand.h"
+#include "drv_tf_card.h"
+#include "File_Config.h"
 
-#define LocalPort_NUM       8080
+#define client
+
+static rt_uint8_t defaultDisk = Nand_Flash;
+static void Mount_Disk(rt_uint8_t disk_name);
+static rt_uint16_t tcp_callback (rt_uint8_t soc, rt_uint8_t evt, rt_uint8_t *ptr, rt_uint16_t par);
+
+static rt_uint8_t socket_tcp;
+static rt_uint8_t send_flag = 0;
+
+#define LocalPort_NUM       1001
 #define IP1                 192
 #define IP2                 168
 #define IP3                 0
 #define IP4                 10
+#define RemotePort_NUM      5689
 
 #define gprs_power          GET_PIN(G, 0)
 #define gprs_rst            GET_PIN(G, 1)
@@ -44,8 +56,6 @@ const char * ReVal_Table[]=
 	"-10: SCK_ENONAME      Host Name not existing              ",
 };
 
-rt_uint8_t sendbuf[1024];
-
 
 void phy_reset(void)
 {
@@ -63,190 +73,149 @@ void phy_reset(void)
 
 int main(void)
 {
-    // char dbuf[10];
-	// int len;
-	// int sock, sd, res;
-	// SOCKADDR_IN addr;
-	// SOCKADDR_IN ReAddr;
+    char dbuf[10];
+    rt_uint8_t *sendbuf;
+    int res;
+    rt_uint8_t Rem_IP[4] = {IP1,IP2,IP3,IP4};
 
     rt_pin_mode(usbd,PIN_MODE_OUTPUT);
     rt_pin_write(usbd, PIN_HIGH);
-    finit("N0:");
-    init_TcpNet ();
-    // rt_thread_mdelay(10000);        //等协议栈初始化完
+    Mount_Disk(tf_Card);
 
-    // unsigned long sck_mode;
-    
+    init_TcpNet ();
+
+
+    rt_thread_mdelay(10000);        //等协议栈初始化完
+
+#ifdef server
+    socket_tcp = tcp_get_socket (TCP_TYPE_SERVER|TCP_TYPE_KEEP_ALIVE, 0, 10, tcp_callback);
+	if(socket_tcp != 0)
+	{
+		res = tcp_listen (socket_tcp, LocalPort_NUM);
+		rt_kprintf("tcp listen res = %d\r\n", res);
+	}
+#endif
+
+#ifdef client
+        socket_tcp = tcp_get_socket (TCP_TYPE_CLIENT | TCP_TYPE_KEEP_ALIVE, 0, 10, tcp_callback);
+        if(socket_tcp != 0)
+        {
+            res = tcp_connect (socket_tcp, Rem_IP, RemotePort_NUM, LocalPort_NUM);
+            rt_kprintf("TCP Socket creat done res = %d\r\n", res);
+        }
+#endif
     while (RT_TRUE)
     {   
-        // /* 创建一个socket 
-        // 第1个参数AF_INET：当前仅支持这个类型的地址族。
-        // 第2个参数SOCK_STREAM：表示数据流通信类型，即使用的TCP。
-        // 第3个参数0 ：配置为0的话，自动跟第2个参数进行协议匹配，这里就是TCP协议。
-        // */
-        // sock = socket (AF_INET, SOCK_STREAM, 0);
-
-        // /* 端口号设置为1001 */
-        // addr.sin_port        = htons(LocalPort_NUM);
-
-        // /* 与函数socket中的AF_INET作用一样 */
-        // addr.sin_family      = PF_INET;
-        // /* 
-        //     INADDR_ANY就是指定地址为0.0.0.0的地址，这个地址事实上表示不确定地址，或所有地址，
-        //     任意地址。用在这里的话就表示监控端口号为ddr.sin_port的所有IP地址消息。一般主要用
-        //     于有多个网卡或者IP地址的情况。
-        // */
-        // addr.sin_addr.s_addr = INADDR_ANY;
-
-        // /* 给socket绑定IP和端口号 */
-        // bind (sock, (SOCKADDR *)&addr, sizeof(addr));
-
-        // /* 设置监听，最大监听1个连接 */
-        // listen (sock, 2);
-
-        // /* 
-        //     等待soket连接请求，有的话，自动创建1个新的socket进行连接通信，没有的话，等待连接。
-        //     注意，能够accept的个数受到listen函数的限制，而listen函数又受到Net_Config.c中宏定义
-        //     BSD_NUMSOCKS 的限制。
-        // */
-        // len = sizeof(ReAddr);
-        // sd = accept (sock, (SOCKADDR *)&ReAddr, &len);
-        // rt_kprintf ("远程客户端请求连接IP: %d.%d.%d.%d\n", ReAddr.sin_addr.s_b1,
-        //                                                         ReAddr.sin_addr.s_b2,
-        //                                                         ReAddr.sin_addr.s_b3,
-        //                                                         ReAddr.sin_addr.s_b4);
-        // rt_kprintf ("远程客户端端口号: %d\n", ntohs(ReAddr.sin_port));
-
-        // /* 关闭监听socket，这个监听socket是调用函数socket后自动创建的 */
-        // closesocket (sock);
-        // sock = sd;           
-
-        /* 创建一个socket 
-		   第1个参数AF_INET：当前仅支持这个类型的地址族。
-		   第2个参数SOCK_STREAM：表示数据流通信类型，即使用的TCP。
-		   第3个参数0 ：配置为0的话，自动跟第2个参数进行协议匹配，这里就是TCP协议。
-		*/
-		// sock = socket (AF_INET, SOCK_STREAM, 0);
-		
-		// /* 设置使能KEEP ALIVE，让客户端和服务器保存连接 */
-		// sck_mode = 1;
-		// res = ioctlsocket (sock, FIO_KEEP_ALIVE, &sck_mode);
-		// if (res == SCK_SUCCESS) 
-		// {
-		// 	rt_kprintf("KEEP ALIVE set done\r\n");
-		// }
-		// else 
-		// {
-		// 	rt_kprintf("KEEP ALIVE set fail\r\n");
-		// }
-
-		// /* 端口号设置为1001 */
-		// addr.sin_port = htons(LocalPort_NUM);
-		
-		// /* 与函数socket中的AF_INET作用一样 */
-		// addr.sin_family = PF_INET;
-		
-		// addr.sin_addr.s_b1 = IP1;
-		// addr.sin_addr.s_b2 = IP2;
-		// addr.sin_addr.s_b3 = IP3;
-		// addr.sin_addr.s_b4 = IP4;
-
-		// /* 客户端连接远程服务器，如果远程服务器还未创建，此函数会立即返回 */
-		// res = connect (sock, (SOCKADDR *)&addr, sizeof (addr));
-		// rt_kprintf("客户端连接远程服务器状态%s\r\n", ReVal_Table[abs(res)]);
+        rt_thread_mdelay(1000);
+        if(send_flag){
+            sendbuf = tcp_get_buf(11);
+            sendbuf[0] = 'h';
+            sendbuf[1] = 'e';
+            sendbuf[2] = 'l';
+            sendbuf[3] = 'l';
+            sendbuf[4] = 'o';
+            sendbuf[5] = ' ';
+            sendbuf[6] = 'w';
+            sendbuf[7] = 'o';
+            sendbuf[8] = 'r';
+            sendbuf[9] = 'l';
+            sendbuf[10] = 'd';
+            tcp_send (socket_tcp, sendbuf, 11);
+        }else{
+			tcp_abort (socket_tcp);
+			tcp_close (socket_tcp);
+			tcp_release_socket (socket_tcp);
+			rt_thread_mdelay(1000);
+			socket_tcp = tcp_get_socket (TCP_TYPE_CLIENT | TCP_TYPE_KEEP_ALIVE, 0, 10, tcp_callback);
+			if(socket_tcp != 0)
+			{
+				res = tcp_connect (socket_tcp, Rem_IP, RemotePort_NUM, LocalPort_NUM);
+				rt_kprintf("TCP Socket creat done res = %d\r\n", res);
+			}
+			rt_thread_mdelay(1000);
+		}
 
 
-
-        rt_thread_mdelay(5000);
-
-        // for(;;){
-            /*
-            socket数据接收函数，如果recv工作在阻塞模式，使用这个函数注意以下事项：
-            1. 此函数的溢出时间受到Net_Config.c中宏定义 BSD_RCVTOUT 的限制。溢出时间到会自动退出。
-            2. 这个函数接收到一次数据包就会返回，大于或者小于设置的缓冲区大小都没有关系，如果数据量
-                大于接收缓冲区大小，用户只需多次调用函数recv进行接收即可。
-            3. 实际接收到数据大小通过判断此函数的返回值即可。
-            */
-            rt_thread_mdelay(50);
-        //     res = recv (sock, dbuf, sizeof(dbuf), 0);
-        //     if (res <= 0) 
-        //     {
-        //         // // closesocket (sock);
-        //         // rt_kprintf("退出接收函数，重新开始监听%s\r\n", ReVal_Table[abs(res)]);
-        //         // break;
-        //     }
-        //     else
-        //     {
-        //         rt_kprintf("Receive Data Length = %d\r\n", res);
-        //         switch(dbuf[0])
-        //         {
-        //             /* 字符命令 1 */
-        //             case '1':
-        //                 sendbuf[0] = '1';
-        //                 sendbuf[1] = '2';
-        //                 sendbuf[2] = '3';
-        //                 sendbuf[3] = '4';
-        //                 sendbuf[4] = '5';
-        //                 sendbuf[5] = '6';
-        //                 sendbuf[6] = '7';
-        //                 sendbuf[7] = '8';
-        //                 sendbuf[8] = '\r';
-        //                 sendbuf[9] = '\n';						
-        //                 res = send (sock, (char *)sendbuf, 10, 0);
-        //                 if (res < 0) 
-        //                 {
-        //                     rt_kprintf("函数send发送数据失败\r\n");
-        //                 }
-        //                 else
-        //                 {
-        //                     rt_kprintf("函数send发送数据成功\r\n");							
-        //                 }
-        //                 break;
-                    
-        //             /* 字符命令 2 */
-        //             case '2':
-        //                 /* 将数据缓冲区清成字符0，方便网络调试助手查看数据 */
-        //                 len = sizeof(sendbuf);
-        //                 memset(sendbuf, 48, len);
-                    
-        //                 /* 这里仅初始化了数据包的前4个字节和最后4个字节 */
-        //                 sendbuf[0] = 'a';
-        //                 sendbuf[1] = 'b';
-        //                 sendbuf[2] = 'c';
-        //                 sendbuf[3] = 'd';
-        //                 sendbuf[len - 4] = 'e';
-        //                 sendbuf[len - 3] = 'f';
-        //                 sendbuf[len - 2] = 'g';
-        //                 sendbuf[len - 1] = 'h';					
-        //                 res = send (sock, (char *)sendbuf, len, 0);
-        //                 if (res < 0) 
-        //                 {
-        //                     rt_kprintf("函数send发送数据失败%s\r\n", ReVal_Table[abs(res)]);
-        //                 }
-        //                 else
-        //                 {
-        //                     rt_kprintf("函数send成功发送数据 = %d字节\r\n", res);							
-        //                 }
-        //                 break;
-                
-        //             /* 其它数值不做处理 */
-        //             default:                     
-        //                 break;
-        //         }
-        //     }
-        // }
-		
-    
-    }
-
-    /* 
-        溢出时间到，远程设备断开连接等，程序都会执行到这里，我们在这里关闭socket，
-        程序返回到第一个大while循环的开头重新创建socket并监听。
-    */
-    // closesocket (sock);
+    }	
 
     return RT_EOK;
 }
 
 
+static void Mount_Disk(rt_uint8_t disk_name)
+{
+    defaultDisk = disk_name;
+    if(disk_name == tf_Card){
+        funinit("N0:");
+        finit("M0:");
+    }else{
+        funinit("M0:");
+        finit("N0:");
+    }
+}
 
+rt_uint8_t Get_MountDisk(void)
+{
+    return defaultDisk;
+}
+
+
+static rt_uint16_t tcp_callback (rt_uint8_t soc, rt_uint8_t evt, rt_uint8_t *ptr, rt_uint16_t par)
+{
+	char buf[50];
+	rt_uint16_t i;
+	
+	/* 确保是socket_tcp的回调 */
+	if (soc != socket_tcp) 
+	{
+		return (0);
+	}
+
+	switch (evt) 
+	{
+		/*
+			远程客户端连接消息
+		    1、数组ptr存储远程设备的IP地址，par中存储端口号。
+		    2、返回数值1允许连接，返回数值0禁止连接。
+		*/
+		case TCP_EVT_CONREQ:
+			sprintf(buf, "[remote client][IP: %d.%d.%d.%d] connectting ... ", ptr[0], ptr[1], ptr[2], ptr[3]);
+			rt_kprintf("IP:%s  port:%d\r\n", buf, par);
+			return (1);
+		
+		/* 连接终止 */
+		case TCP_EVT_ABORT:
+			break;
+		
+		/* Socket远程连接已经建立 */
+		case TCP_EVT_CONNECT:
+			rt_kprintf("Socket is connected to remote peer\r\n");
+            send_flag = 1;
+			break;
+		
+		/* 连接断开 */
+		case TCP_EVT_CLOSE:
+		   	rt_kprintf("Connection has been closed\r\n");
+            send_flag = 0;
+			break;
+		
+		/* 发送的数据收到远程设备应答 */
+		case TCP_EVT_ACK:
+			break;
+		
+		/* 接收到TCP数据帧，ptr指向数据地址，par记录数据长度，单位字节 */
+		case TCP_EVT_DATA:
+			rt_kprintf("Data length = %d\r\n", par);
+            rt_kprintf("[hex]:");
+			for(i = 0; i < par; i++)
+			{
+				rt_kprintf("0x%02x ", ptr[i]);
+			}
+            rt_kprintf("\r\n");
+
+
+			break;
+	}
+	
+	return (0);
+}

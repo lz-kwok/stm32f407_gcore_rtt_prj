@@ -885,6 +885,16 @@ void SPI2_DMA_RX_TX_IRQHandler(void)
 }
 #endif  /* SOC_SERIES_STM32F0 */
 
+#if defined(BSP_USING_SPI2)
+rt_uint8_t SPI2_ReadWriteByte(rt_uint8_t TxData)
+{
+    rt_uint8_t Rxdata;
+    HAL_SPI_TransmitReceive_DMA(&spi_bus_obj[SPI2_INDEX].handle,&TxData,&Rxdata,1);       
+    
+    return Rxdata;          			
+}
+#endif
+
 int rt_hw_spi_init(void)
 {
     stm32_get_dma_info();

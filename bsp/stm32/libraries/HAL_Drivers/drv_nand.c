@@ -376,7 +376,7 @@ static void DotFormat(uint64_t _ullVal, char *_sp)
 	sprintf (_sp,"%d",(U32)(_ullVal));
 }
 
-static void ViewNandCapacity(void)
+void ViewNandCapacity(void)
 {
 	rt_uint8_t result;
 	Media_INFO info;
@@ -387,12 +387,12 @@ static void ViewNandCapacity(void)
 	// rt_hw_mtd_nand_init();
 
 	/* 加载nandflash */
-	result = finit("N0:");
+	result = finit("M0:");
 	if(result != NULL){
 		NAND_DEBUG("Failed to mount file system (%s)\r\n", ReVal_Table[result]);
 		NAND_DEBUG("Mount failed, FAT32 format required\r\n");
         NAND_DEBUG("FAT32 format in progress....\r\n");
-        if (fformat ("N0:") != 0){            
+        if (fformat ("M0:") != 0){            
             NAND_DEBUG ("Format failed\r\n");
         }else{
             NAND_DEBUG ("Format success\r\n");
@@ -402,7 +402,7 @@ static void ViewNandCapacity(void)
 	}
 	NAND_DEBUG("------------------------------------------------------------------\r\n");
 	/* 获取volume label */
-	if (fvol ("N0:", (char *)buf) == 0) 
+	if (fvol ("M0:", (char *)buf) == 0) 
 	{
 		if (buf[0]){
 			NAND_DEBUG ("Volume label of NAND Flash id %s\r\n", buf);
@@ -414,12 +414,12 @@ static void ViewNandCapacity(void)
 	}
 
 	/* 获取NAND Flash剩余容量 */
-	ullNANDCapacity = ffree("N0:");
+	ullNANDCapacity = ffree("M0:");
 	DotFormat(ullNANDCapacity, (char *)buf);
 	NAND_DEBUG("Free space of NAND Flash is %10s Bytes\r\n", buf);
 	
 	/* 卸载NAND Flash */
-	result = funinit("N0:");
+	result = funinit("M0:");
 	if(result != NULL){
 		NAND_DEBUG("uMount failed\r\n");
 	}else{
@@ -427,7 +427,7 @@ static void ViewNandCapacity(void)
 	}
 	
 	/* 获取相应存储设备的句柄 */
-	mc0 = ioc_getcb("N0");          
+	mc0 = ioc_getcb("M0");          
    
 	/* 初始化FAT文件系统格式的存储设备 */
 	if (ioc_init (mc0) == 0) 

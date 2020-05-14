@@ -8,15 +8,20 @@
  *      This code is part of the RealView Run-Time Library.
  *      Copyright (c) 2004-2013 KEIL - An ARM Company. All rights reserved.
  
- *	ÐÞ¸Ä¼ÇÂ¼ :
- *		°æ±¾ºÅ    ÈÕÆÚ         ×÷Õß            ËµÃ÷
- *     V1.0    2020-04-14    Glz            ³õÊ¼°æ±¾
+ *	ï¿½Þ¸Ä¼ï¿½Â¼ :
+ *		ï¿½æ±¾ï¿½ï¿½    ï¿½ï¿½ï¿½ï¿½         ï¿½ï¿½ï¿½ï¿½            Ëµï¿½ï¿½
+ *     V1.0    2020-04-14    Glz            ï¿½ï¿½Ê¼ï¿½æ±¾
  *
  *---------------------------------------------------------------------------*/
 
 #include <Net_Config.h>
 #include <File_Config.h>
 #include <stdio.h>
+
+extern rt_uint8_t Get_MountDisk(void);
+
+static const char *disk_msc_name = "M0:";
+static const char *disk_nand_name = "N0:";
 
 /*----------------------------------------------------------------------------
  * FTP Server File Access Functions
@@ -25,8 +30,16 @@
 /*--------------------------- ftp_fopen -------------------------------------*/
 
 void *ftp_fopen (U8 *fname, U8 *mode) {
+  U8 disk_path[64];
+  memset(disk_path,0x0,64);
+  if(Get_MountDisk() == tf_Card){
+    sprintf(disk_path,"%s%s",disk_msc_name,fname);
+  }else{
+    sprintf(disk_path,"%s%s",disk_nand_name,fname);
+  }
+  
   /* Open file 'fname' for reading or writing. Return file handle. */
-  return (fopen ((const char *)fname, (const char *)mode));
+  return (fopen ((const char *)disk_path, (const char *)mode));
 }
 
 
@@ -58,8 +71,15 @@ U16 ftp_fwrite (void *file, U8 *buf, U16 len) {
 /*--------------------------- ftp_fdelete -----------------------------------*/
 
 BOOL ftp_fdelete (U8 *fname) {
+  U8 disk_path[64];
+  memset(disk_path,0x0,64);
+  if(Get_MountDisk() == tf_Card){
+    sprintf(disk_path,"%s%s",disk_msc_name,fname);
+  }else{
+    sprintf(disk_path,"%s%s",disk_nand_name,fname);
+  }
   /* Delete a file, return __TRUE on success. */
-  if (fdelete((char *)fname) == 0) {
+  if (fdelete((char *)disk_path) == 0) {
     return (__TRUE);
   }
   return (__FALSE);
@@ -69,8 +89,15 @@ BOOL ftp_fdelete (U8 *fname) {
 /*--------------------------- ftp_frename -----------------------------------*/
 
 BOOL ftp_frename (U8 *fname, U8 *newn) {
+  U8 disk_path[64];
+  memset(disk_path,0x0,64);
+  if(Get_MountDisk() == tf_Card){
+    sprintf(disk_path,"%s%s",disk_msc_name,fname);
+  }else{
+    sprintf(disk_path,"%s%s",disk_nand_name,fname);
+  }
   /* Rename a file, return __TRUE on success. */
-  if (frename((char *)fname, (char *)newn) == 0) {
+  if (frename((char *)disk_path, (char *)newn) == 0) {
     return (__TRUE);
   }
   return (__FALSE);
@@ -94,6 +121,14 @@ U16 ftp_ffind (U8 code, U8 *buf, U8 *mask, U16 buflen) {
   U32 rlen,v;
   U8 *tp;
 
+  U8 disk_path[64];
+  memset(disk_path,0x0,64);
+  if(Get_MountDisk() == tf_Card){
+    sprintf(disk_path,"%s%s",disk_msc_name,mask);
+  }else{
+    sprintf(disk_path,"%s%s",disk_nand_name,mask);
+  }
+
   if (code < 4) {
     /* First call to ffind, initialize the info. */
     info.fileID = 0;
@@ -101,7 +136,7 @@ U16 ftp_ffind (U8 code, U8 *buf, U8 *mask, U16 buflen) {
 
   rlen = 0;
 next:
-  if (ffind ((char *)mask, &info) == 0) {
+  if (ffind ((char *)disk_path, &info) == 0) {
     /* File found, print file information. */
     if (info.name[0] == '.') {
       if ((info.name[1] == 0) || (info.name[1] == '.' && info.name[2] == 0)) {

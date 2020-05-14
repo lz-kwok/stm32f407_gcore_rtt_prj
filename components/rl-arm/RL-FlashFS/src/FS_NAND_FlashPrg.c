@@ -60,7 +60,7 @@ static U32 Init (NAND_DRV_CFG *cfg) {
   cfg->PgLay->SpareOfs =  2048;
   cfg->PgLay->SpareInc =  16;
 	
-  rt_hw_mtd_nand_init();      //NAND_Init();
+  rt_hw_mtd_nand_init();      //
 
   return RTV_NOERR;
 }

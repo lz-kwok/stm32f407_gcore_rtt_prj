@@ -94,6 +94,9 @@ if GetDepend(['RT_USING_FTL_LAYER']):
 if GetDepend(['BSP_USING_GPRS']):
 	src += ['drv_gprs.c']
 
+if GetDepend(['BSP_USING_TFCARD']):
+    src += ['drv_tf_card.c']
+
 src += ['drv_common.c']
 
 path =  [cwd]

@@ -11,6 +11,10 @@
         "rtthread.h": "c",
         "netif.h": "c",
         "drv_config.h": "c",
-        "uffs_mem.h": "c"
+        "uffs_mem.h": "c",
+        "string.h": "c",
+        "drv_tf_card.h": "c",
+        "absacc.h": "c",
+        "drv_log.h": "c"
     }
 }

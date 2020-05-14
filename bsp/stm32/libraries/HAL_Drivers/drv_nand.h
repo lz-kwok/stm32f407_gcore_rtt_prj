@@ -69,7 +69,7 @@
 
 //NAND FLASH型号和对应的ID号
 #define W29N02GVSIAA			0xefda9095	//W29N02GVSIAA
-
+void ViewNandCapacity(void);
 rt_uint8_t rt_hw_mtd_nand_init(void);
 void rt_hw_mtd_nand_deinit(void);
 rt_uint8_t NAND_EraseBlock(rt_uint32_t _ulBlockNo);
